@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '0.5.0';
-  const STORAGE_KEY = 'jun_kakeibo_mvp_v050';
-  const OLD_STORAGE_KEYS = ['jun_kakeibo_mvp_v041', 'jun_kakeibo_mvp_v040', 'jun_kakeibo_mvp_v030', 'jun_kakeibo_mvp_v020', 'jun_kakeibo_mvp_v010'];
+  const APP_VERSION = '1.0.0';
+  const STORAGE_KEY = 'jun_kakeibo_mvp_v100';
+  const OLD_STORAGE_KEYS = ['jun_kakeibo_mvp_v050', 'jun_kakeibo_mvp_v041', 'jun_kakeibo_mvp_v040', 'jun_kakeibo_mvp_v030', 'jun_kakeibo_mvp_v020', 'jun_kakeibo_mvp_v010'];
 
   const accountTypeLabels = {
     cash: '現金',
@@ -52,28 +52,39 @@
   ];
 
   const achievementDefinitions = [
-    { id: 'first_expense', emoji: '🌱', title: 'はじめの一歩', description: '支出を1件登録する', target: 1, current: (f) => f.totalEntries },
-    { id: 'july_start', emoji: '🎋', title: '7月スタート', description: '2026年7月分の支出を1件登録する', target: 1, current: (f) => f.julyEntries },
-    { id: 'three_entries', emoji: '📝', title: '入力に慣れてきた', description: '対象月に支出を3件登録する', target: 3, current: (f) => f.monthEntries },
-    { id: 'ten_entries', emoji: '📒', title: '家計簿ルーキー', description: '合計10件登録する', target: 10, current: (f) => f.totalEntries },
-    { id: 'fifty_entries', emoji: '🏅', title: '記録職人', description: '合計50件登録する', target: 50, current: (f) => f.totalEntries },
-    { id: 'hundred_entries', emoji: '👑', title: '習慣化の王', description: '合計100件登録する', target: 100, current: (f) => f.totalEntries },
-    { id: 'three_record_days', emoji: '🔥', title: '三日坊主突破', description: '対象月に3日分の記録をつける', target: 3, current: (f) => f.recordDays },
-    { id: 'seven_record_days', emoji: '🗓️', title: '一週間キープ', description: '対象月に7日分の記録をつける', target: 7, current: (f) => f.recordDays },
-    { id: 'fourteen_record_days', emoji: '💪', title: '半月ランナー', description: '対象月に14日分の記録をつける', target: 14, current: (f) => f.recordDays },
-    { id: 'twentyfive_record_days', emoji: '🌕', title: '月間マスター', description: '対象月に25日分の記録をつける', target: 25, current: (f) => f.recordDays },
-    { id: 'streak_three', emoji: '⚡', title: '3日連続記録', description: '3日連続で支出を記録する', target: 3, current: (f) => f.bestStreak },
-    { id: 'streak_seven', emoji: '🚀', title: '7日連続記録', description: '7日連続で支出を記録する', target: 7, current: (f) => f.bestStreak },
-    { id: 'category_five', emoji: '🧭', title: '分類できてる', description: '対象月に5種類以上のカテゴリを使う', target: 5, current: (f) => f.categoryCount },
-    { id: 'account_three', emoji: '👛', title: '支払元マスター', description: '対象月に3種類以上の支払元を使う', target: 3, current: (f) => f.accountCount },
-    { id: 'method_three', emoji: '🔀', title: '三種の支払い', description: '現金・キャッシュレス・引き落としをすべて使う', target: 3, current: (f) => f.methodCount },
-    { id: 'memo_ten', emoji: '✍️', title: 'メモ魔', description: 'メモ付き支出を合計10件登録する', target: 10, current: (f) => f.memoEntries },
-    { id: 'card_recorded', emoji: '💳', title: 'カード未払を見える化', description: 'クレジットカード支出を1件登録する', target: 1, current: (f) => f.cardEntries },
-    { id: 'bank_settlement', emoji: '🏦', title: '引き落とし確認済み', description: '楽天銀行CSVからカード精算を1件登録する', target: 1, current: (f) => f.settlementEntries },
-    { id: 'goal_first', emoji: '🎯', title: '目標を置いた', description: '目標を1件登録する', target: 1, current: (f) => f.goalCount },
-    { id: 'goal_achieved', emoji: '🎉', title: '目標達成！', description: '目標を1件達成する', target: 1, current: (f) => f.goalAchievedCount },
-    { id: 'whisky_first', emoji: '🥃', title: 'ウイスキー記録', description: 'ウイスキーカテゴリで1件登録する', target: 1, current: (f) => f.whiskyEntries },
-    { id: 'game_first', emoji: '🎮', title: 'ゲーム記録', description: 'ゲームカテゴリで1件登録する', target: 1, current: (f) => f.gameEntries }
+    { id: 'first_expense', emoji: '🌱', title: '財布に記録の火を灯した', description: '支出を1件登録する。ここから家計管理のログが始まる。', target: 1, current: (f) => f.totalEntries },
+    { id: 'july_start', emoji: '🎋', title: '七月作戦、開始', description: '2026年7月分の支出を1件登録する。正式運用のスタート地点。', target: 1, current: (f) => f.julyEntries },
+    { id: 'three_entries', emoji: '🧾', title: 'レシート三連星', description: '対象月に支出を3件登録する。入力の型を体で覚えた。', target: 3, current: (f) => f.monthEntries },
+    { id: 'ten_entries', emoji: '📒', title: 'レシートハンター Lv.10', description: '合計10件登録する。もう「試しただけ」では終わらない。', target: 10, current: (f) => f.totalEntries },
+    { id: 'thirty_month_entries', emoji: '📚', title: '月間ログブック30', description: '対象月に30件登録する。生活の流れがかなり見える。', target: 30, current: (f) => f.monthEntries },
+    { id: 'fifty_entries', emoji: '🪄', title: '仕分けの魔法使い', description: '合計50件登録する。分類と記録がだいぶ自然になってきた。', target: 50, current: (f) => f.totalEntries },
+    { id: 'hundred_entries', emoji: '👑', title: '家計簿の守護者', description: '合計100件登録する。家計の霧を晴らす番人。', target: 100, current: (f) => f.totalEntries },
+    { id: 'three_record_days', emoji: '🔥', title: '三日坊主に勝った日', description: '対象月に3日分の記録をつける。まずはここを超えれば十分。', target: 3, current: (f) => f.recordDays },
+    { id: 'seven_record_days', emoji: '🗓️', title: '一週間の航海士', description: '対象月に7日分の記録をつける。家計の海図ができ始める。', target: 7, current: (f) => f.recordDays },
+    { id: 'fourteen_record_days', emoji: '🏃', title: '半月スプリンター', description: '対象月に14日分の記録をつける。もう完全に生活ルーティン候補。', target: 14, current: (f) => f.recordDays },
+    { id: 'twentyfive_record_days', emoji: '🌕', title: '月末の番人', description: '対象月に25日分の記録をつける。月の支出をかなり逃さない。', target: 25, current: (f) => f.recordDays },
+    { id: 'streak_three', emoji: '⚡', title: '連続ログインボーナス', description: '3日連続で支出を記録する。ゲームっぽく続ける最初の連鎖。', target: 3, current: (f) => f.bestStreak },
+    { id: 'streak_seven', emoji: '🚀', title: '生活ログ・チェイン7', description: '7日連続で支出を記録する。これはかなり強い継続力。', target: 7, current: (f) => f.bestStreak },
+    { id: 'category_five', emoji: '🧭', title: '分類の地図職人', description: '対象月に5種類以上のカテゴリを使う。支出の地形が見えてくる。', target: 5, current: (f) => f.categoryCount },
+    { id: 'category_ten', emoji: '🗂️', title: 'カテゴリ十傑', description: '対象月に10種類以上のカテゴリを使う。かなり細かく見えている。', target: 10, current: (f) => f.categoryCount },
+    { id: 'account_three', emoji: '👛', title: '支払元トライアングル', description: '対象月に3種類以上の支払元を使う。現金・口座・カードの動きが見える。', target: 3, current: (f) => f.accountCount },
+    { id: 'method_three', emoji: '🗡️', title: '支払い三刀流', description: '現金・キャッシュレス・引き落としをすべて使う。入力方法を一通り制覇。', target: 3, current: (f) => f.methodCount },
+    { id: 'memo_ten', emoji: '✍️', title: '未来の自分への伝言', description: 'メモ付き支出を合計10件登録する。あとから見返した自分が助かる。', target: 10, current: (f) => f.memoEntries },
+    { id: 'memo_thirty', emoji: '🪶', title: '記録官の羽ペン', description: 'メモ付き支出を合計30件登録する。支出の理由まで残せている。', target: 30, current: (f) => f.memoEntries },
+    { id: 'envelope_first', emoji: '✉️', title: '現金封筒を開けし者', description: '現金封筒からの支出を1件登録する。封筒管理との接続準備OK。', target: 1, current: (f) => f.envelopeEntries },
+    { id: 'direct_asset_first', emoji: '💸', title: '即時減少を見逃さない', description: '現金・封筒・銀行口座からの支出を1件登録する。資産反映の基本形。', target: 1, current: (f) => f.directEntries },
+    { id: 'card_recorded', emoji: '💳', title: 'カード未払の可視化', description: 'クレジットカード支出を1件登録する。使った日と落ちる日を分けて見られる。', target: 1, current: (f) => f.cardEntries },
+    { id: 'card_month_five', emoji: '🧮', title: 'カード利用の見張り番', description: '対象月にカード支出を5件登録する。未払の見える化が効いてくる。', target: 5, current: (f) => f.cardMonthEntries },
+    { id: 'bank_settlement', emoji: '🏦', title: '楽天銀行ゲート開通', description: '楽天銀行CSVからカード精算を1件登録する。二重計上しない仕組みを使えた。', target: 1, current: (f) => f.settlementEntries },
+    { id: 'settlement_five', emoji: '🛡️', title: '精算ハンター', description: 'カード精算記録を5件登録する。引き落としチェックがかなり進んだ。', target: 5, current: (f) => f.settlementEntries },
+    { id: 'goal_first', emoji: '🚩', title: '目標の旗を立てた', description: '目標を1件登録する。家計簿が「未来の予定」とつながった。', target: 1, current: (f) => f.goalCount },
+    { id: 'goal_three', emoji: '🗺️', title: '未来マップ作成中', description: '目標を3件登録する。旅行・家電・リフォームなどを並べて見られる。', target: 3, current: (f) => f.goalCount },
+    { id: 'goal_achieved', emoji: '🎉', title: '目標の宝箱を開けた', description: '目標を1件達成する。記録がちゃんと行動につながった証拠。', target: 1, current: (f) => f.goalAchievedCount },
+    { id: 'whisky_first', emoji: '🥃', title: '琥珀色の監査官', description: 'ウイスキーカテゴリで1件登録する。楽しみ費も見える化。', target: 1, current: (f) => f.whiskyEntries },
+    { id: 'game_first', emoji: '🎮', title: '積みゲー管理局', description: 'ゲームカテゴリで1件登録する。趣味費もちゃんと味方につける。', target: 1, current: (f) => f.gameEntries },
+    { id: 'medical_first', emoji: '🩺', title: '健康費レーダー起動', description: '医療カテゴリで1件登録する。体のメンテ費も家計に入れる。', target: 1, current: (f) => f.medicalEntries },
+    { id: 'travel_first', emoji: '✈️', title: '旅費の滑走路', description: '旅行カテゴリで1件登録する。楽しみのための支出も計画に乗せる。', target: 1, current: (f) => f.travelEntries },
+    { id: 'jcb_mystery', emoji: '🕵️', title: 'JCBの謎を捕獲', description: 'JCB系カード（要確認）の精算を1件登録する。あとでカード名を特定しよう。', target: 1, current: (f) => f.jcbUnknownSettlements }
   ];
 
   let state = loadState();
@@ -1153,6 +1164,9 @@
     const categories = new Set(monthTransactions.map((tx) => tx.categoryName || findCategoryName(tx.categoryId)).filter(Boolean));
     const accounts = new Set(monthTransactions.map((tx) => tx.accountId || tx.accountName).filter(Boolean));
     const methods = new Set(monthTransactions.map((tx) => tx.paymentMethod).filter(Boolean));
+    const directTypes = new Set(['cash', 'envelope', 'bank', 'cashless']);
+    const categoryMatch = (tx, keyword) => String(tx.categoryName || findCategoryName(tx.categoryId) || '').includes(keyword);
+    const settlements = state.settlements || [];
     return {
       month,
       totalEntries: allTransactions.length,
@@ -1163,12 +1177,19 @@
       accountCount: accounts.size,
       methodCount: methods.size,
       memoEntries: allTransactions.filter((tx) => String(tx.memo || '').trim()).length,
+      envelopeEntries: allTransactions.filter((tx) => getTxAccount(tx)?.type === 'envelope').length,
+      directEntries: allTransactions.filter((tx) => directTypes.has(getTxAccount(tx)?.type)).length,
       cardEntries: allTransactions.filter((tx) => getTxAccount(tx)?.type === 'card').length,
-      settlementEntries: (state.settlements || []).length,
+      cardMonthEntries: monthTransactions.filter((tx) => getTxAccount(tx)?.type === 'card').length,
+      settlementEntries: settlements.length,
+      settlementMonthEntries: filterByMonth(settlements, month).length,
+      jcbUnknownSettlements: settlements.filter((item) => item.cardAccountId === 'card_jcb_unknown' || String(item.cardAccountName || '').includes('JCB系')).length,
       goalCount: (state.goals || []).length,
       goalAchievedCount: (state.goals || []).filter((goal) => goalProgress(goal) >= 100).length,
-      whiskyEntries: allTransactions.filter((tx) => String(tx.categoryName || '').includes('ウイスキー')).length,
-      gameEntries: allTransactions.filter((tx) => String(tx.categoryName || '').includes('ゲーム')).length,
+      whiskyEntries: allTransactions.filter((tx) => categoryMatch(tx, 'ウイスキー')).length,
+      gameEntries: allTransactions.filter((tx) => categoryMatch(tx, 'ゲーム')).length,
+      medicalEntries: allTransactions.filter((tx) => categoryMatch(tx, '医療')).length,
+      travelEntries: allTransactions.filter((tx) => categoryMatch(tx, '旅行')).length,
       bestStreak: longestRecordStreak(allTransactions.map((tx) => tx.date).filter(Boolean))
     };
   }
@@ -1189,14 +1210,14 @@
   function renderAchievementTitle(facts, unlockedCount, totalCount) {
     const ratio = totalCount ? unlockedCount / totalCount : 0;
     let title = '家計簿、開幕前夜';
-    let message = 'まずは7月分の支出を1件入れればスタート。ここからで十分。';
+    let message = 'まずは7月分の支出を1件。小さく始めて、続く形にする。';
     let emoji = '🌙';
-    if (facts.totalEntries >= 1) { title = '家計簿ルーキー'; message = '入力は始まった。あとは無理なく続けるだけ。'; emoji = '🌱'; }
-    if (facts.recordDays >= 3) { title = '三日坊主突破'; message = 'ここまで来たら、もう「やれる側」に入ってる。'; emoji = '🔥'; }
-    if (facts.recordDays >= 7) { title = '一週間キーパー'; message = '1週間分の記録はかなり強い。家計のクセが見えてくる。'; emoji = '🗓️'; }
-    if (facts.bestStreak >= 7) { title = '継続の人'; message = '7日連続は立派。広告なし自作アプリの勝ち。'; emoji = '🚀'; }
-    if (ratio >= 0.6) { title = '家計簿マスター候補'; message = 'かなり解除が進んでいる。次は総資産アプリ連携が見えてくる。'; emoji = '🏅'; }
-    if (ratio >= 0.9) { title = '習慣化の王'; message = 'ここまで来たら、もう家計簿が生活の一部。'; emoji = '👑'; }
+    if (facts.totalEntries >= 1) { title = '記録の火が灯った'; message = '入力は始まった。あとは完璧より継続で勝てばいい。'; emoji = '🌱'; }
+    if (facts.recordDays >= 3) { title = '三日坊主撃破'; message = 'ここまで来たら、もう「やれる側」に片足入ってる。'; emoji = '🔥'; }
+    if (facts.recordDays >= 7) { title = '一週間の航海士'; message = '1週間分の記録は強い。家計のクセが見え始める。'; emoji = '🗓️'; }
+    if (facts.bestStreak >= 7) { title = '生活ログ・チェイン7'; message = '7日連続は立派。自作アプリで習慣を作れている。'; emoji = '🚀'; }
+    if (ratio >= 0.6) { title = '家計簿ギルド上級者'; message = '解除がかなり進んでいる。総資産アプリ連携の土台として十分強い。'; emoji = '🏅'; }
+    if (ratio >= 0.9) { title = '家計簿の守護者'; message = 'ここまで来たら、もう家計簿が生活の一部。'; emoji = '👑'; }
 
     els.achievementTitleBox.innerHTML = `
       <div class="achievement-title-emoji">${emoji}</div>

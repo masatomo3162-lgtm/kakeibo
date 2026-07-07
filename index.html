@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f3c969">
-  <title>じぶん家計簿 v0.5.0</title>
+  <title>じぶん家計簿 v1.0.0</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,7 +15,7 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">支出を記録しながら、どの現金封筒・口座・カードに影響するかを残します。</p>
     </div>
-    <div class="version">v0.5.0</div>
+    <div class="version">v1.0.0 正式版</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -412,9 +412,9 @@
       </div>
 
       <div class="stats-grid achievement-stats-grid">
-        <div class="stat-card">
+        <div class="stat-card achievement-score-card">
           <span>解除数</span>
-          <strong><span id="achievementUnlockedCount">0</span>/<span id="achievementTotalCount">0</span></strong>
+          <strong class="achievement-score"><span id="achievementUnlockedCount">0</span><small>/<span id="achievementTotalCount">0</span></small></strong>
         </div>
         <div class="stat-card">
           <span>対象月の記録日数</span>
@@ -470,7 +470,7 @@
 
         <div class="card backup-card">
           <h3>CSV入出力</h3>
-          <p>v0.5.0では、総資産連携用データに加えて、続けるための実績解除も扱います。</p>
+          <p>v1.0.0では、総資産連携用データに加えて、続けるための実績解除と更新履歴を扱います。</p>
           <div class="backup-actions">
             <button type="button" class="primary" id="exportCsvButton">支出CSVを書き出し</button>
             <button type="button" class="ghost" id="exportAccountsCsvButton">支払元CSVを書き出し</button>
@@ -489,6 +489,50 @@
             <summary>支出CSV形式</summary>
             <pre>id,date,type,amount,payment_method,account_id,account_name,account_type,withdrawal_account,category,memo,asset_effect,created_at,updated_at</pre>
           </details>
+        </div>
+      </div>
+
+      <div class="card changelog-card">
+        <div class="inline-title">
+          <h3>更新履歴</h3>
+          <span class="badge">正式版</span>
+        </div>
+        <div class="changelog-list">
+          <article>
+            <strong>v1.0.0</strong>
+            <small>2026-07-07</small>
+            <p>正式版。実績解除の数字を大きくし、実績名と条件をユニーク化。アイコンを刷新し、設定画面に更新履歴を追加。</p>
+          </article>
+          <article>
+            <strong>v0.5.0</strong>
+            <small>2026-07-07</small>
+            <p>実績解除タブを追加。7月開始、記録日数、カード精算、目標達成などを自動判定。</p>
+          </article>
+          <article>
+            <strong>v0.4.1</strong>
+            <small>2026-07-07</small>
+            <p>楽天銀行CSVの実明細に合わせ、クレカ引き落とし判定を強化。</p>
+          </article>
+          <article>
+            <strong>v0.4.0</strong>
+            <small>2026-07-07</small>
+            <p>銀行CSVタブを追加し、カード引き落としを支出ではなく精算記録として保存。</p>
+          </article>
+          <article>
+            <strong>v0.3.0</strong>
+            <small>2026-07-07</small>
+            <p>支払元表示崩れを修正し、目標タブを追加。</p>
+          </article>
+          <article>
+            <strong>v0.2.0</strong>
+            <small>2026-07-07</small>
+            <p>総資産管理アプリ連携を見据え、支払元を資産口座マスター化。</p>
+          </article>
+          <article>
+            <strong>v0.1.0</strong>
+            <small>2026-07-07</small>
+            <p>支出入力、履歴、カテゴリ編集、CSV入出力、ローカル保存を実装。</p>
+          </article>
         </div>
       </div>
     </section>

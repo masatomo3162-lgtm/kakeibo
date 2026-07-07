@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jun-kakeibo-v050';
+const CACHE_NAME = 'jun-kakeibo-v100';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
