@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3c969">
+  <title>じぶん家計簿 v0.5.0</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">広告なし・端末保存・資産連携準備</p>
+      <h1>じぶん家計簿</h1>
+      <p class="subtitle">支出を記録しながら、どの現金封筒・口座・カードに影響するかを残します。</p>
+    </div>
+    <div class="version">v0.5.0</div>
+  </header>
+
+  <nav class="tabbar" aria-label="メインメニュー">
+    <button class="tab is-active" data-tab="input">入力</button>
+    <button class="tab" data-tab="summary">集計</button>
+    <button class="tab" data-tab="history">履歴</button>
+    <button class="tab" data-tab="accounts">支払元</button>
+    <button class="tab" data-tab="goals">目標</button>
+    <button class="tab" data-tab="bank">銀行CSV</button>
+    <button class="tab" data-tab="achievements">実績</button>
+    <button class="tab" data-tab="settings">設定</button>
+  </nav>
+
+  <main class="container">
+    <section id="tab-input" class="panel is-active" aria-labelledby="input-title">
+      <div class="card hero-card">
+        <div>
+          <h2 id="input-title">支出を入力</h2>
+          <p>支払元を「資産口座」として登録します。現金・封筒・銀行は即時減少、カードは未払として扱える形にしました。</p>
+        </div>
+        <div class="today-total">
+          <span>今月の支出</span>
+          <strong id="monthTotalTop">¥0</strong>
+        </div>
+      </div>
+
+      <form id="expenseForm" class="card form-card" autocomplete="off">
+        <input type="hidden" id="editId" value="">
+        <div class="grid two">
+          <label>
+            <span>日付</span>
+            <input type="date" id="dateInput" required>
+          </label>
+          <label>
+            <span>金額</span>
+            <input type="number" id="amountInput" inputmode="numeric" min="1" step="1" placeholder="例：1200" required>
+          </label>
+        </div>
+
+        <div class="grid two">
+          <label>
+            <span>支払元</span>
+            <select id="accountInput" required></select>
+          </label>
+          <label>
+            <span>支払方法</span>
+            <select id="paymentMethodInput" required>
+              <option value="現金">現金</option>
+              <option value="キャッシュレス">キャッシュレス</option>
+              <option value="引き落とし">引き落とし</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="accountEffectBox" class="effect-box">支払元を選ぶと、総資産管理アプリへ反映しやすいメモを表示します。</div>
+
+        <div class="grid two">
+          <label>
+            <span>カテゴリ</span>
+            <select id="categoryInput" required></select>
+          </label>
+          <label>
+            <span>新規カテゴリ追加</span>
+            <input id="newCategoryInput" placeholder="ここに入力すると選択肢に追加">
+          </label>
+        </div>
+
+        <label>
+          <span>メモ</span>
+          <input id="memoInput" placeholder="任意：何を買ったか、補足など">
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="primary" id="saveButton">保存</button>
+          <button type="button" class="ghost" id="clearButton">クリア</button>
+        </div>
+        <p class="hint">データはこの端末のブラウザ内に保存されます。別端末に移す場合はCSVを書き出してください。</p>
+      </form>
+    </section>
+
+    <section id="tab-summary" class="panel" aria-labelledby="summary-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="summary-title">月別集計</h2>
+          <p>支出合計に加えて、カード未払と即時に減る支払元を分けて確認します。</p>
+        </div>
+        <label class="month-picker">
+          <span>対象月</span>
+          <input type="month" id="summaryMonthInput">
+        </label>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span>月合計</span>
+          <strong id="summaryTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>カード未払</span>
+          <strong id="summaryCardTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>カード精算</span>
+          <strong id="summarySettlementTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>即時減少</span>
+          <strong id="summaryDirectTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>件数 / 1日平均</span>
+          <strong><span id="summaryCount">0件</span> / <span id="summaryDailyAvg">¥0</span></strong>
+        </div>
+      </div>
+
+      <div class="grid two summary-grid">
+        <div class="card">
+          <h3>カテゴリ別</h3>
+          <div id="categoryBreakdown" class="breakdown"></div>
+        </div>
+        <div class="card">
+          <h3>支払元別</h3>
+          <div id="accountBreakdown" class="breakdown"></div>
+        </div>
+        <div class="card">
+          <h3>支払方法別</h3>
+          <div id="methodBreakdown" class="breakdown"></div>
+        </div>
+        <div class="card">
+          <h3>資産反映プレビュー</h3>
+          <p class="hint">総資産管理アプリと統合したときに反映しやすい形の目安です。</p>
+          <div id="assetEffectBreakdown" class="breakdown"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-history" class="panel" aria-labelledby="history-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="history-title">履歴</h2>
+          <p>登録済みの支出を確認・編集・削除できます。</p>
+        </div>
+        <div class="history-tools">
+          <label>
+            <span>対象月</span>
+            <input type="month" id="historyMonthInput">
+          </label>
+          <label>
+            <span>カテゴリ</span>
+            <select id="historyCategoryFilter"></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-head">
+          <strong id="historyTotal">¥0</strong>
+          <span id="historyCount">0件</span>
+        </div>
+        <div id="transactionList" class="transaction-list"></div>
+      </div>
+    </section>
+
+    <section id="tab-accounts" class="panel" aria-labelledby="accounts-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="accounts-title">支払元・資産口座</h2>
+          <p>現金封筒、銀行口座、クレジットカードを管理します。クレカの引き落とし先は初期値ですべて楽天銀行です。</p>
+        </div>
+      </div>
+
+      <div class="grid two settings-grid">
+        <div class="card">
+          <h3>支払元を追加・編集</h3>
+          <form id="accountForm" class="stack-form">
+            <input type="hidden" id="accountIdInput">
+            <label>
+              <span>名称</span>
+              <input id="accountNameInput" placeholder="例：食費封筒 / 楽天カード" required>
+            </label>
+            <div class="grid two compact">
+              <label>
+                <span>種別</span>
+                <select id="accountTypeInput" required>
+                  <option value="cash">現金</option>
+                  <option value="envelope">現金封筒</option>
+                  <option value="bank">銀行口座</option>
+                  <option value="card">クレジットカード</option>
+                  <option value="cashless">電子マネー・QR</option>
+                </select>
+              </label>
+              <label>
+                <span>金融機関・メモ</span>
+                <input id="accountInstitutionInput" placeholder="例：楽天銀行">
+              </label>
+            </div>
+            <label id="withdrawalWrap">
+              <span>カード引き落とし先</span>
+              <select id="withdrawalAccountInput"></select>
+            </label>
+            <label class="checkline">
+              <input type="checkbox" id="includeInAssetsInput" checked>
+              <span>総資産管理アプリの資産口座として扱う</span>
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="primary" id="accountSaveButton">支払元を保存</button>
+              <button type="button" class="ghost" id="accountClearButton">クリア</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="inline-title">
+            <h3>登録済みの支払元</h3>
+            <button type="button" class="ghost small" id="seedCardsButton">クレカ5枚を補充</button>
+          </div>
+          <div id="accountList" class="editable-list account-list"></div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="tab-goals" class="panel" aria-labelledby="goals-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="goals-title">目標</h2>
+          <p>family-goals の目標カードを、家計簿用に軽く入れました。旅行・リフォーム・家電などの目標金額と進捗を管理します。</p>
+        </div>
+      </div>
+
+      <div class="stats-grid goal-stats-grid">
+        <div class="stat-card">
+          <span>目標合計</span>
+          <strong id="goalsTargetTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>現在の積立</span>
+          <strong id="goalsSavedTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>あと必要</span>
+          <strong id="goalsRemainingTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>達成済み</span>
+          <strong id="goalsAchievedCount">0件</strong>
+        </div>
+      </div>
+
+      <div class="grid two settings-grid">
+        <div class="card">
+          <h3>目標を追加・編集</h3>
+          <form id="goalForm" class="stack-form" autocomplete="off">
+            <input type="hidden" id="goalIdInput">
+            <div class="grid two compact">
+              <label>
+                <span>タイトル</span>
+                <input id="goalTitleInput" placeholder="例：沖縄旅行 / 外壁リフォーム" required>
+              </label>
+              <label>
+                <span>絵文字</span>
+                <input id="goalEmojiInput" maxlength="4" placeholder="✈️">
+              </label>
+            </div>
+            <div class="grid two compact">
+              <label>
+                <span>目標金額</span>
+                <input id="goalTargetInput" type="number" min="1" step="1" placeholder="例：500000" required>
+              </label>
+              <label>
+                <span>現在の積立額</span>
+                <input id="goalSavedInput" type="number" min="0" step="1" placeholder="例：100000">
+              </label>
+            </div>
+            <div class="grid two compact">
+              <label>
+                <span>目標時期</span>
+                <input id="goalDueInput" type="date">
+              </label>
+              <label>
+                <span>積立・保管先</span>
+                <select id="goalAccountInput"></select>
+              </label>
+            </div>
+            <div class="grid two compact">
+              <label>
+                <span>種類</span>
+                <select id="goalTypeInput">
+                  <option value="experience">やりたいこと</option>
+                  <option value="wish">欲しいもの</option>
+                  <option value="reserve">備えるお金</option>
+                </select>
+              </label>
+              <label>
+                <span>優先度</span>
+                <select id="goalPriorityInput">
+                  <option value="high">最優先</option>
+                  <option value="medium" selected>通常</option>
+                  <option value="low">いつか</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>メモ</span>
+              <input id="goalMemoInput" placeholder="任意：理由、使う予定、注意点など">
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="primary" id="goalSaveButton">目標を保存</button>
+              <button type="button" class="ghost" id="goalClearButton">クリア</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="inline-title">
+            <h3>登録済みの目標</h3>
+            <span class="hint">進捗は手入力で管理</span>
+          </div>
+          <div id="goalList" class="goals-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-bank" class="panel" aria-labelledby="bank-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="bank-title">楽天銀行CSV</h2>
+          <p>楽天銀行の入出金明細CSVから、クレジットカードの引き落としを検出します。ここで登録されるのは支出ではなく、カード未払の精算記録です。</p>
+        </div>
+        <label class="month-picker">
+          <span>対象月</span>
+          <input type="month" id="bankMonthInput">
+        </label>
+      </div>
+
+      <div class="stats-grid bank-stats-grid">
+        <div class="stat-card">
+          <span>対象月の精算額</span>
+          <strong id="bankSettlementTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>精算件数</span>
+          <strong id="bankSettlementCount">0件</strong>
+        </div>
+        <div class="stat-card">
+          <span>カード支出との差額</span>
+          <strong id="bankUnsettledTotal">¥0</strong>
+        </div>
+        <div class="stat-card">
+          <span>処理種別</span>
+          <strong>精算</strong>
+        </div>
+      </div>
+
+      <div class="grid two settings-grid">
+        <div class="card backup-card">
+          <h3>楽天銀行CSV読み込み</h3>
+          <p class="hint">明細の摘要に「楽天カード」「リクルートカード」「PayPayカード」などが含まれる出金行を自動判定します。銀行引き落としは支出に入れず、カード未払の精算として保存します。</p>
+          <div class="backup-actions bank-actions">
+            <label class="file-button">
+              楽天銀行CSVを読み込み
+              <input type="file" id="importBankCsvInput" accept=".csv,text/csv">
+            </label>
+            <button type="button" class="ghost" id="exportSettlementsCsvButton">精算CSVを書き出し</button>
+            <button type="button" class="danger" id="clearSettlementsButton">精算記録を全削除</button>
+          </div>
+          <details>
+            <summary>検出する主なカード名</summary>
+            <p class="hint">楽天銀行CSVの実明細に合わせ、三井住友カード／楽天カード／PayPayカード／LIFEカード／ドンペンカード（UCS）／JCB系カードを検出します。JCB系はリクルートカード・セブンカードの判別ができないため「要確認」として登録します。KABUカードは明細名が分かり次第キーワード追加してください。</p>
+          </details>
+        </div>
+
+        <div class="card">
+          <div class="inline-title">
+            <h3>カード精算記録</h3>
+            <span class="hint">支出には加算しません</span>
+          </div>
+          <div id="settlementList" class="settlement-list"></div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="tab-achievements" class="panel" aria-labelledby="achievements-title">
+      <div class="card section-title-card achievement-hero">
+        <div>
+          <h2 id="achievements-title">実績解除</h2>
+          <p>7月分から続けるための遊び要素です。支出入力・カード精算・目標管理を使うほど自然に解除されます。</p>
+        </div>
+        <label class="month-picker">
+          <span>対象月</span>
+          <input type="month" id="achievementMonthInput">
+        </label>
+      </div>
+
+      <div class="stats-grid achievement-stats-grid">
+        <div class="stat-card">
+          <span>解除数</span>
+          <strong><span id="achievementUnlockedCount">0</span>/<span id="achievementTotalCount">0</span></strong>
+        </div>
+        <div class="stat-card">
+          <span>対象月の記録日数</span>
+          <strong id="achievementRecordDays">0日</strong>
+        </div>
+        <div class="stat-card">
+          <span>対象月の入力件数</span>
+          <strong id="achievementMonthEntries">0件</strong>
+        </div>
+        <div class="stat-card">
+          <span>最長連続記録</span>
+          <strong id="achievementBestStreak">0日</strong>
+        </div>
+      </div>
+
+      <div class="grid two achievement-summary-grid">
+        <div class="card">
+          <h3>今月の称号</h3>
+          <div id="achievementTitleBox" class="achievement-title-box"></div>
+        </div>
+        <div class="card">
+          <h3>次に狙える実績</h3>
+          <div id="nextAchievementList" class="next-achievement-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="inline-title">
+          <h3>実績一覧</h3>
+          <span class="hint">解除条件は自動判定</span>
+        </div>
+        <div id="achievementList" class="achievement-list"></div>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="panel" aria-labelledby="settings-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="settings-title">設定・CSV</h2>
+          <p>カテゴリとバックアップを管理します。</p>
+        </div>
+      </div>
+
+      <div class="grid two settings-grid">
+        <div class="card">
+          <h3>カテゴリ管理</h3>
+          <form id="categoryForm" class="inline-form">
+            <input id="categoryNameInput" placeholder="例：ウイスキー" required>
+            <button type="submit" class="primary small">追加</button>
+          </form>
+          <div id="categoryList" class="editable-list"></div>
+        </div>
+
+        <div class="card backup-card">
+          <h3>CSV入出力</h3>
+          <p>v0.5.0では、総資産連携用データに加えて、続けるための実績解除も扱います。</p>
+          <div class="backup-actions">
+            <button type="button" class="primary" id="exportCsvButton">支出CSVを書き出し</button>
+            <button type="button" class="ghost" id="exportAccountsCsvButton">支払元CSVを書き出し</button>
+            <button type="button" class="ghost" id="exportGoalsCsvButton">目標CSVを書き出し</button>
+            <label class="file-button">
+              支出CSVを読み込み
+              <input type="file" id="importCsvInput" accept=".csv,text/csv">
+            </label>
+            <label class="file-button">
+              目標CSVを読み込み
+              <input type="file" id="importGoalsCsvInput" accept=".csv,text/csv">
+            </label>
+            <button type="button" class="danger" id="resetButton">全データ初期化</button>
+          </div>
+          <details>
+            <summary>支出CSV形式</summary>
+            <pre>id,date,type,amount,payment_method,account_id,account_name,account_type,withdrawal_account,category,memo,asset_effect,created_at,updated_at</pre>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
