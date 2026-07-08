@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.1.0';
+  const APP_VERSION = '2.1.1';
   const STORAGE_KEY = 'jun_kakeibo_expense_v210';
   const OLD_STORAGE_KEYS = [
     'jun_kakeibo_expense_v200',
