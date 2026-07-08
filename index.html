@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.0.0</title>
+  <title>じぶん家計簿 v2.1.0</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,9 +13,9 @@
     <div>
       <p class="eyebrow">広告なし・端末保存・支出比較特化</p>
       <h1>じぶん家計簿</h1>
-      <p class="subtitle">レシートと領収書を記録して、今月・去年・家族生活後の支出を比べます。</p>
+      <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.0.0</div>
+    <div class="version">v2.1.0</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -60,6 +60,13 @@
             <select id="categoryInput" required></select>
           </label>
           <label>
+            <span>お店・支払先</span>
+            <select id="storeInput" required></select>
+          </label>
+        </div>
+
+        <div class="grid two">
+          <label>
             <span>支払方法</span>
             <select id="paymentMethodInput" required>
               <option value="現金">現金</option>
@@ -69,32 +76,35 @@
               <option value="その他">その他</option>
             </select>
           </label>
-        </div>
-
-        <div class="grid two">
           <label>
             <span>生活フェーズ</span>
             <select id="phaseInput">
-              <option value="単身期">単身期</option>
-              <option value="同居準備期">同居準備期</option>
-              <option value="家族生活期">家族生活期</option>
+              <option value="旧生活">旧生活</option>
+              <option value="新生活">新生活</option>
             </select>
-          </label>
-          <label>
-            <span>生活人数</span>
-            <input type="number" id="peopleInput" inputmode="numeric" min="1" step="1" value="1" required>
           </label>
         </div>
 
         <div class="grid two">
           <label>
             <span>メモ</span>
-            <input id="memoInput" placeholder="例：トライアル 食料品 / 電気代 / ウイスキー">
+            <input id="memoInput" placeholder="例：食料品 / 電気代 / ウイスキー">
           </label>
           <label>
             <span>新規カテゴリ追加</span>
-            <input id="newCategoryInput" placeholder="ここに入力すると選択肢に追加">
+            <input id="newCategoryInput" placeholder="ここに入力するとカテゴリに追加">
           </label>
+        </div>
+
+        <div class="grid two">
+          <label>
+            <span>新規お店追加</span>
+            <input id="newStoreInput" placeholder="例：トライアル / ツルハ / Amazon">
+          </label>
+          <div class="note-box small-note">
+            <strong>お店は自動で選択肢へ</strong>
+            <span>新しく登録したお店は、次回から選択できます。</span>
+          </div>
         </div>
 
         <div class="note-box">
@@ -113,12 +123,12 @@
       <div class="card section-title-card">
         <div>
           <h2 id="compare-title">左右比較</h2>
-          <p>今月と先月、今年と去年、家族が増える前後などを横並びで比べます。</p>
+          <p>今月と先月、今年と去年、旧生活と新生活などを横並びで比べます。</p>
         </div>
         <div class="quick-buttons">
           <button type="button" class="ghost small" data-preset="month">今月 vs 先月</button>
           <button type="button" class="ghost small" data-preset="year">今年 vs 去年</button>
-          <button type="button" class="ghost small" data-preset="phase">単身期 vs 家族生活期</button>
+          <button type="button" class="ghost small" data-preset="phase">旧生活 vs 新生活</button>
         </div>
       </div>
 
@@ -144,9 +154,8 @@
           <label class="left-field phase-field is-hidden">
             <span>生活フェーズ</span>
             <select id="leftPhaseInput">
-              <option value="単身期">単身期</option>
-              <option value="同居準備期">同居準備期</option>
-              <option value="家族生活期">家族生活期</option>
+              <option value="旧生活">旧生活</option>
+              <option value="新生活">新生活</option>
             </select>
           </label>
         </div>
@@ -172,9 +181,8 @@
           <label class="right-field phase-field is-hidden">
             <span>生活フェーズ</span>
             <select id="rightPhaseInput">
-              <option value="単身期">単身期</option>
-              <option value="同居準備期">同居準備期</option>
-              <option value="家族生活期">家族生活期</option>
+              <option value="旧生活">旧生活</option>
+              <option value="新生活">新生活</option>
             </select>
           </label>
         </div>
@@ -207,6 +215,10 @@
           <div id="categoryCompare" class="compare-table"></div>
         </div>
         <div class="card">
+          <h3>お店別比較</h3>
+          <div id="storeCompare" class="compare-table"></div>
+        </div>
+        <div class="card wide-card">
           <h3>支払方法別比較</h3>
           <div id="methodCompare" class="compare-table"></div>
         </div>
@@ -227,6 +239,10 @@
           <label>
             <span>カテゴリ</span>
             <select id="historyCategoryFilter"></select>
+          </label>
+          <label>
+            <span>お店</span>
+            <select id="historyStoreFilter"></select>
           </label>
           <label>
             <span>支払方法</span>
@@ -361,14 +377,10 @@
       <div class="grid two settings-grid">
         <div class="card">
           <h3>CSVバックアップ</h3>
-          <p class="hint">端末保存なので、定期的にCSVを書き出してください。</p>
+          <p class="hint">支出・目標・貯金・カテゴリ・お店を1つのCSVにまとめて保存します。</p>
           <div class="button-stack">
-            <button type="button" class="ghost" id="exportExpensesCsvButton">支出CSVを書き出し</button>
-            <button type="button" class="ghost" id="exportGoalsCsvButton">目標CSVを書き出し</button>
-            <button type="button" class="ghost" id="exportSavingsCsvButton">貯金CSVを書き出し</button>
-            <label class="file-button">支出CSVを読み込み<input type="file" id="importExpensesCsvInput" accept=".csv,text/csv"></label>
-            <label class="file-button">目標CSVを読み込み<input type="file" id="importGoalsCsvInput" accept=".csv,text/csv"></label>
-            <label class="file-button">貯金CSVを読み込み<input type="file" id="importSavingsCsvInput" accept=".csv,text/csv"></label>
+            <button type="button" class="ghost" id="exportBackupCsvButton">一括CSVを書き出し</button>
+            <label class="file-button">一括CSVを読み込み<input type="file" id="importBackupCsvInput" accept=".csv,text/csv"></label>
           </div>
         </div>
 
@@ -383,6 +395,16 @@
         </div>
 
         <div class="card">
+          <h3>お店・支払先設定</h3>
+          <form id="storeForm" class="stack-form">
+            <input type="hidden" id="storeIdInput">
+            <label><span>お店・支払先名</span><input id="storeNameInput" placeholder="例：トライアル / 楽天市場 / 公共料金"></label>
+            <div class="form-actions"><button type="submit" class="primary" id="storeSaveButton">お店を保存</button><button type="button" class="ghost" id="storeClearButton">クリア</button></div>
+          </form>
+          <div id="storeList" class="chip-list"></div>
+        </div>
+
+        <div class="card">
           <h3>データ操作</h3>
           <p class="hint">初期化前に必ずCSVを書き出してください。</p>
           <button type="button" class="danger" id="resetAllButton">全データ初期化</button>
@@ -391,6 +413,7 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.1.0</strong><p>支出入力に「お店・支払先」を追加。お店別集計・比較・履歴フィルター・設定編集を実装。生活人数を削除し、生活フェーズを旧生活／新生活に整理。一括CSVバックアップに変更。アイコンを添付テイストで再作成。</p></article>
             <article><strong>v2.0.0</strong><p>総資産連携・カード精算・楽天銀行CSVを廃止。純粋な支出記録、左右比較、生活フェーズ比較、目的別貯金、目標連結、実績を再設計。</p></article>
             <article><strong>v1.0.0</strong><p>実績解除と更新履歴を追加した正式版。</p></article>
             <article><strong>v0.4.x</strong><p>楽天銀行CSVとクレカ精算を追加。後に複雑化防止のためv2で廃止。</p></article>

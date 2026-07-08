@@ -123,3 +123,6 @@ th { color: var(--muted); font-size: .8rem; }
   .achievement-overview div:last-child { border-bottom: 0; }
   .history-tools label { min-width: 100%; }
 }
+.small-note { margin-top: 0; align-self: end; }
+.wide-card { grid-column: 1 / -1; }
+@media (max-width: 820px) { .wide-card { grid-column: auto; } }
