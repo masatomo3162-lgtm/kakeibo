@@ -2,8 +2,9 @@
   'use strict';
 
   const APP_VERSION = '2.2.0';
-  const STORAGE_KEY = 'jun_kakeibo_expense_v210';
+  const STORAGE_KEY = 'jun_kakeibo_expense_v220';
   const OLD_STORAGE_KEYS = [
+    'jun_kakeibo_expense_v210',
     'jun_kakeibo_expense_v200',
     'jun_kakeibo_mvp_v100', 'jun_kakeibo_mvp_v050', 'jun_kakeibo_mvp_v041', 'jun_kakeibo_mvp_v040',
     'jun_kakeibo_mvp_v030', 'jun_kakeibo_mvp_v020', 'jun_kakeibo_mvp_v010'
@@ -25,12 +26,10 @@
     '楽天市場', 'Amazon', 'ガソリンスタンド', '病院・薬局', '公共料金', 'その他'
   ];
 
-  const defaultPretendCategoryNames = [
-    'ゲーム課金', 'コンビニ', '外食', 'お菓子・飲み物', 'ネット通販', 'サブスク', '趣味', 'タバコ', 'その他'
-  ];
 
-  const defaultDestinationNames = [
-    'リフォーム資金', '太陽光・パワコン資金', 'NISA', '学資', '家族旅行', '車検代', '予備費', 'ウイスキー資金', 'その他'
+  const defaultBudgetItems = [
+    ['お小遣い', 30000], ['食費', 50000], ['娯楽費', 15000], ['外食費', 12000], ['酒代', 10000],
+    ['ゲーム代', 5000], ['日用品', 12000], ['医療費', 8000], ['車・ガソリン', 20000], ['その他', 0]
   ];
 
   const achievementDefinitions = [
@@ -54,6 +53,18 @@
     { id: 'new_life_phase', emoji: '🏠', title: '新生活モード観測開始', description: '新生活の支出を1件登録する。変化の比較が始まる。', target: 1, current: (f) => f.newLifeEntries },
     { id: 'whisky_first', emoji: '🥃', title: '琥珀色の監査官', description: 'ウイスキーカテゴリで1件登録する。楽しみ費も見える化。', target: 1, current: (f) => f.whiskyEntries },
     { id: 'game_first', emoji: '🎮', title: '積みゲー管理局', description: 'ゲームカテゴリで1件登録する。趣味費も管理対象。', target: 1, current: (f) => f.gameEntries },
+
+    { id: 'budget_first', emoji: '📊', title: '予算管理、始動', description: '予算項目を1つ登録する。今月の上限が見えるようになった。', target: 1, current: (f) => f.budgetCount },
+    { id: 'allowance_first', emoji: '🛡️', title: 'お小遣い防衛ライン', description: 'お小遣いからの支出を1件登録する。自分のお金と家計を分ける第一歩。', target: 1, current: (f) => f.allowanceEntries },
+    { id: 'budget_food', emoji: '🍚', title: '食費を見張る者', description: '食費の予算を設定する。スーパーの支出が見えやすくなる。', target: 1, current: (f) => f.foodBudgetSet },
+    { id: 'budget_fun', emoji: '🎪', title: '娯楽費監査官', description: '娯楽費の予算を設定する。楽しみ費も味方につける。', target: 1, current: (f) => f.funBudgetSet },
+    { id: 'budget_calm', emoji: '🟢', title: 'まだ慌てる時間じゃない', description: '対象月に70%未満で収まっている予算枠が1つある。', target: 1, current: (f) => f.safeBudgetCount },
+    { id: 'budget_close', emoji: '🟡', title: 'ギリギリの節約術', description: '対象月に90%以上100%未満の予算枠が1つある。攻めすぎ注意。', target: 1, current: (f) => f.nearBudgetCount },
+    { id: 'budget_over', emoji: '🔴', title: '赤信号突破', description: '対象月に予算オーバーした枠が1つある。次月の作戦会議だ。', target: 1, current: (f) => f.overBudgetCount },
+    { id: 'split_first', emoji: '✂️', title: '仕分けの第一歩', description: 'レシート分割入力を1回使う。混ざった支出をほどいた。', target: 1, current: (f) => f.splitReceiptGroups },
+    { id: 'split_trial', emoji: '🛒', title: 'トライアル仕分け職人', description: 'トライアルの買い物を分割入力する。食費の水増しを防いだ。', target: 1, current: (f) => f.trialSplitGroups },
+    { id: 'split_whisky', emoji: '🥃', title: 'ウイスキー分離成功', description: '分割入力で酒・ウイスキー系の支出を登録する。琥珀色を食費から救出。', target: 1, current: (f) => f.whiskySplitEntries },
+    { id: 'split_match', emoji: '✅', title: 'レシート照合ヨシ', description: 'レシート合計と内訳合計が一致した分割入力を保存する。', target: 1, current: (f) => f.matchedSplitGroups },
     { id: 'goal_first', emoji: '🚩', title: '目標の旗を立てた', description: '目標を1件登録する。支出記録が未来の予定とつながる。', target: 1, current: (f) => f.goalCount },
     { id: 'saving_first', emoji: '🏦', title: '目的別貯金、開封', description: '目的別貯金を1件登録する。封筒か銀行かは自由。', target: 1, current: (f) => f.savingCount },
     { id: 'linked_saving', emoji: '🔗', title: '目標と貯金が合体', description: '目標と貯金を1件連結する。進捗が自動で見える。', target: 1, current: (f) => f.linkedSavingCount },
@@ -69,9 +80,11 @@
     tabs: $$('.tab'), panels: $$('.panel'), toast: $('#toast'),
     expenseForm: $('#expenseForm'), editId: $('#editId'), dateInput: $('#dateInput'), amountInput: $('#amountInput'), categoryInput: $('#categoryInput'),
     storeInput: $('#storeInput'), paymentMethodInput: $('#paymentMethodInput'), phaseInput: $('#phaseInput'), memoInput: $('#memoInput'), newCategoryInput: $('#newCategoryInput'), newStoreInput: $('#newStoreInput'), saveButton: $('#saveButton'), clearButton: $('#clearButton'),
+    budgetInput: $('#budgetInput'), allowanceInput: $('#allowanceInput'), splitModeInput: $('#splitModeInput'), receiptTotalInput: $('#receiptTotalInput'), splitLineList: $('#splitLineList'), splitLineTotal: $('#splitLineTotal'), splitDiffTotal: $('#splitDiffTotal'), splitDiffMessage: $('#splitDiffMessage'), addSplitLineButton: $('#addSplitLineButton'), splitEntryPanel: $('#splitEntryPanel'),
     monthTotalTop: $('#monthTotalTop'),
+    budgetMonthInput: $('#budgetMonthInput'), budgetLimitTotal: $('#budgetLimitTotal'), budgetUsedTotal: $('#budgetUsedTotal'), budgetRemainTotal: $('#budgetRemainTotal'), budgetOverCount: $('#budgetOverCount'), budgetCardList: $('#budgetCardList'),
     leftTypeInput: $('#leftTypeInput'), rightTypeInput: $('#rightTypeInput'), leftMonthInput: $('#leftMonthInput'), rightMonthInput: $('#rightMonthInput'), leftYearInput: $('#leftYearInput'), rightYearInput: $('#rightYearInput'), leftPhaseInput: $('#leftPhaseInput'), rightPhaseInput: $('#rightPhaseInput'),
-    leftTitle: $('#leftTitle'), rightTitle: $('#rightTitle'), leftTotal: $('#leftTotal'), rightTotal: $('#rightTotal'), leftStats: $('#leftStats'), rightStats: $('#rightStats'), diffLabel: $('#diffLabel'), diffTotal: $('#diffTotal'), diffComment: $('#diffComment'), categoryCompare: $('#categoryCompare'), methodCompare: $('#methodCompare'), storeCompare: $('#storeCompare'),
+    leftTitle: $('#leftTitle'), rightTitle: $('#rightTitle'), leftTotal: $('#leftTotal'), rightTotal: $('#rightTotal'), leftStats: $('#leftStats'), rightStats: $('#rightStats'), diffLabel: $('#diffLabel'), diffTotal: $('#diffTotal'), diffComment: $('#diffComment'), categoryCompare: $('#categoryCompare'), methodCompare: $('#methodCompare'), storeCompare: $('#storeCompare'), budgetCompare: $('#budgetCompare'),
     historyMonthInput: $('#historyMonthInput'), historyCategoryFilter: $('#historyCategoryFilter'), historyStoreFilter: $('#historyStoreFilter'), historyMethodFilter: $('#historyMethodFilter'), historyTotal: $('#historyTotal'), historyCount: $('#historyCount'), expenseList: $('#expenseList'),
     goalForm: $('#goalForm'), goalIdInput: $('#goalIdInput'), goalTitleInput: $('#goalTitleInput'), goalTargetInput: $('#goalTargetInput'), goalManualInput: $('#goalManualInput'), goalDueInput: $('#goalDueInput'), goalTypeInput: $('#goalTypeInput'), goalMemoInput: $('#goalMemoInput'), goalSaveButton: $('#goalSaveButton'), goalClearButton: $('#goalClearButton'), goalList: $('#goalList'), goalsTargetTotal: $('#goalsTargetTotal'), goalsCurrentTotal: $('#goalsCurrentTotal'), goalsRemainingTotal: $('#goalsRemainingTotal'), goalsAchievedCount: $('#goalsAchievedCount'),
     savingForm: $('#savingForm'), savingIdInput: $('#savingIdInput'), savingNameInput: $('#savingNameInput'), savingTypeInput: $('#savingTypeInput'), savingBalanceInput: $('#savingBalanceInput'), savingTargetInput: $('#savingTargetInput'), savingGoalInput: $('#savingGoalInput'), savingMemoInput: $('#savingMemoInput'), savingSaveButton: $('#savingSaveButton'), savingClearButton: $('#savingClearButton'), savingList: $('#savingList'), envelopeSavingTotal: $('#envelopeSavingTotal'), bankSavingTotal: $('#bankSavingTotal'), savingTotal: $('#savingTotal'), linkedSavingCount: $('#linkedSavingCount'),
@@ -79,16 +92,8 @@
     exportBackupCsvButton: $('#exportBackupCsvButton'), importBackupCsvInput: $('#importBackupCsvInput'),
     categoryForm: $('#categoryForm'), categoryIdInput: $('#categoryIdInput'), categoryNameInput: $('#categoryNameInput'), categorySaveButton: $('#categorySaveButton'), categoryClearButton: $('#categoryClearButton'), categoryList: $('#categoryList'),
     storeForm: $('#storeForm'), storeIdInput: $('#storeIdInput'), storeNameInput: $('#storeNameInput'), storeSaveButton: $('#storeSaveButton'), storeClearButton: $('#storeClearButton'), storeList: $('#storeList'),
-    resetAllButton: $('#resetAllButton'),
-    pretendMonthTotalTop: $('#pretendMonthTotalTop'), pretendMonthTotal: $('#pretendMonthTotal'),
-    pretendStatMonth: $('#pretendStatMonth'), pretendStatYear: $('#pretendStatYear'), pretendStatTotal: $('#pretendStatTotal'), pretendStatPace: $('#pretendStatPace'),
-    pretendMessages: $('#pretendMessages'),
-    pretendForm: $('#pretendForm'), pretendEditId: $('#pretendEditId'), pretendDateInput: $('#pretendDateInput'), pretendAmountInput: $('#pretendAmountInput'), pretendTitleInput: $('#pretendTitleInput'), pretendTitleSuggestions: $('#pretendTitleSuggestions'), pretendCategoryInput: $('#pretendCategoryInput'), pretendDestinationInput: $('#pretendDestinationInput'), pretendMemoInput: $('#pretendMemoInput'), pretendSaveButton: $('#pretendSaveButton'), pretendClearButton: $('#pretendClearButton'),
-    pretendMonthChart: $('#pretendMonthChart'), pretendDestinationChart: $('#pretendDestinationChart'), pretendCategoryChart: $('#pretendCategoryChart'), pretendRanking: $('#pretendRanking'), pretendDestinationProgress: $('#pretendDestinationProgress'),
-    pretendMonthFilter: $('#pretendMonthFilter'), pretendListTotal: $('#pretendListTotal'), pretendListCount: $('#pretendListCount'), pretendList: $('#pretendList'),
-    pretendCategoryForm: $('#pretendCategoryForm'), pretendCategoryIdInput: $('#pretendCategoryIdInput'), pretendCategoryNameInput: $('#pretendCategoryNameInput'), pretendCategorySaveButton: $('#pretendCategorySaveButton'), pretendCategoryClearButton: $('#pretendCategoryClearButton'), pretendCategoryList: $('#pretendCategoryList'),
-    destinationForm: $('#destinationForm'), destinationIdInput: $('#destinationIdInput'), destinationNameInput: $('#destinationNameInput'), destinationTargetInput: $('#destinationTargetInput'), destinationSaveButton: $('#destinationSaveButton'), destinationClearButton: $('#destinationClearButton'), destinationList: $('#destinationList'),
-    pretendSampleButton: $('#pretendSampleButton'), pretendDeleteAllButton: $('#pretendDeleteAllButton')
+    budgetForm: $('#budgetForm'), budgetIdInput: $('#budgetIdInput'), budgetNameInput: $('#budgetNameInput'), budgetLimitInput: $('#budgetLimitInput'), budgetEnabledInput: $('#budgetEnabledInput'), budgetSaveButton: $('#budgetSaveButton'), budgetClearButton: $('#budgetClearButton'), budgetList: $('#budgetList'),
+    resetAllButton: $('#resetAllButton')
   };
 
   init();
@@ -99,9 +104,8 @@
     const thisMonth = monthKey(today);
     els.dateInput.value = dateKey(today);
     els.historyMonthInput.value = thisMonth;
+    els.budgetMonthInput.value = thisMonth;
     els.achievementMonthInput.value = thisMonth;
-    els.pretendDateInput.value = dateKey(today);
-    els.pretendMonthFilter.value = '';
     setComparePreset('month');
     bindEvents();
     registerServiceWorker();
@@ -118,6 +122,11 @@
     els.tabs.forEach((tab) => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
     els.expenseForm.addEventListener('submit', handleExpenseSubmit);
     els.clearButton.addEventListener('click', resetExpenseForm);
+    els.allowanceInput.addEventListener('change', handleAllowanceToggle);
+    els.budgetInput.addEventListener('change', syncAllowanceFromBudget);
+    els.splitModeInput.addEventListener('change', handleSplitModeToggle);
+    els.receiptTotalInput.addEventListener('input', updateSplitTotals);
+    els.addSplitLineButton.addEventListener('click', () => addSplitLine());
     els.newCategoryInput.addEventListener('change', handleNewCategoryInline);
     els.newStoreInput.addEventListener('change', handleNewStoreInline);
 
@@ -126,6 +135,7 @@
     $$('.quick-buttons [data-preset]').forEach((button) => button.addEventListener('click', () => setComparePreset(button.dataset.preset)));
 
     [els.historyMonthInput, els.historyCategoryFilter, els.historyStoreFilter, els.historyMethodFilter].forEach((input) => input.addEventListener('change', renderHistory));
+    els.budgetMonthInput.addEventListener('change', renderBudgetsDashboard);
     els.goalForm.addEventListener('submit', handleGoalSubmit);
     els.goalClearButton.addEventListener('click', resetGoalForm);
     els.savingForm.addEventListener('submit', handleSavingSubmit);
@@ -135,20 +145,12 @@
     els.exportBackupCsvButton.addEventListener('click', () => downloadCsv('一括バックアップ', backupToRows(), `kakeibo-backup_${stamp()}.csv`));
     els.importBackupCsvInput.addEventListener('change', (e) => importCsvFile(e, importBackup));
 
-    els.pretendForm.addEventListener('submit', handlePretendSubmit);
-    els.pretendClearButton.addEventListener('click', () => resetPretendForm());
-    els.pretendMonthFilter.addEventListener('change', renderPretendList);
-    els.pretendCategoryForm.addEventListener('submit', handlePretendCategorySubmit);
-    els.pretendCategoryClearButton.addEventListener('click', resetPretendCategoryForm);
-    els.destinationForm.addEventListener('submit', handleDestinationSubmit);
-    els.destinationClearButton.addEventListener('click', resetDestinationForm);
-    els.pretendSampleButton.addEventListener('click', addPretendSampleData);
-    els.pretendDeleteAllButton.addEventListener('click', deleteAllPretendData);
-
     els.categoryForm.addEventListener('submit', handleCategorySubmit);
     els.categoryClearButton.addEventListener('click', resetCategoryForm);
     els.storeForm.addEventListener('submit', handleStoreSubmit);
     els.storeClearButton.addEventListener('click', resetStoreForm);
+    els.budgetForm.addEventListener('submit', handleBudgetSubmit);
+    els.budgetClearButton.addEventListener('click', resetBudgetForm);
     els.resetAllButton.addEventListener('click', resetAllData);
   }
 
@@ -169,10 +171,8 @@
       version: APP_VERSION,
       categories: defaultCategoryNames.map((name, index) => ({ id: createId('cat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
       stores: defaultStoreNames.map((name, index) => ({ id: createId('store'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
-      expenses: [], goals: [], savings: [], achievementsSeen: [],
-      pretendSavings: [],
-      pretendCategories: defaultPretendCategoryNames.map((name, index) => ({ id: createId('pcat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
-      destinations: defaultDestinationNames.map((name, index) => ({ id: createId('dest'), name, targetAmount: 0, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() }))
+      budgets: defaultBudgetItems.map(([name, monthlyLimit], index) => ({ id: createId('budget'), name, monthlyLimit, enabled: true, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
+      expenses: [], goals: [], savings: [], achievementsSeen: []
     };
   }
 
@@ -182,10 +182,12 @@
     const storeNames = unique([...defaultStoreNames, ...(Array.isArray(parsed.stores) ? parsed.stores.map((store) => store.name || store.store || store) : [])].map((name) => String(name || '').trim()).filter(Boolean));
     const categories = categoryNames.map((name, index) => ({ id: createId('cat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() }));
     const stores = storeNames.map((name, index) => ({ id: createId('store'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() }));
-    const expenses = (Array.isArray(parsed.expenses) ? parsed.expenses : Array.isArray(parsed.transactions) ? parsed.transactions : []).map((item) => normalizeExpense(item, categories, stores)).filter(Boolean);
+    const budgetItems = Array.isArray(parsed.budgets) ? parsed.budgets : Array.isArray(parsed.budgetItems) ? parsed.budgetItems : [];
+    const budgets = mergeBudgets(budgetItems.map(normalizeBudget).filter(Boolean), createFallbackState().budgets);
+    const expenses = (Array.isArray(parsed.expenses) ? parsed.expenses : Array.isArray(parsed.transactions) ? parsed.transactions : []).map((item) => normalizeExpense(item, categories, stores, budgets)).filter(Boolean);
     const goals = (Array.isArray(parsed.goals) ? parsed.goals : []).map(normalizeGoal).filter(Boolean);
     const savings = (Array.isArray(parsed.savings) ? parsed.savings : []).map((item) => normalizeSaving(item, goals)).filter(Boolean);
-    return normalizeState({ ...fallback, categories, stores, expenses, goals, savings, achievementsSeen: Array.isArray(parsed.achievementsSeen) ? parsed.achievementsSeen : [] });
+    return normalizeState({ ...fallback, categories, stores, budgets, expenses, goals, savings, achievementsSeen: Array.isArray(parsed.achievementsSeen) ? parsed.achievementsSeen : [] });
   }
 
   function normalizeState(raw) {
@@ -194,17 +196,11 @@
     const stores = Array.isArray(raw?.stores) ? raw.stores.map(normalizeStore).filter(Boolean) : fallback.stores;
     const finalCategories = mergeByName(categories, fallback.categories);
     const finalStores = mergeByName(stores, fallback.stores);
+    const budgets = mergeBudgets(Array.isArray(raw?.budgets) ? raw.budgets.map(normalizeBudget).filter(Boolean) : [], fallback.budgets);
     const goals = Array.isArray(raw?.goals) ? raw.goals.map(normalizeGoal).filter(Boolean) : [];
     const savings = Array.isArray(raw?.savings) ? raw.savings.map((item) => normalizeSaving(item, goals)).filter(Boolean) : [];
-    const expenses = Array.isArray(raw?.expenses) ? raw.expenses.map((item) => normalizeExpense(item, finalCategories, finalStores)).filter(Boolean) : [];
-    const pretendCategories = mergeByName(Array.isArray(raw?.pretendCategories) ? raw.pretendCategories.map(normalizeCategory).filter(Boolean) : [], fallback.pretendCategories);
-    const destinations = mergeDestinations(Array.isArray(raw?.destinations) ? raw.destinations.map(normalizeDestination).filter(Boolean) : [], fallback.destinations);
-    const pretendSavings = Array.isArray(raw?.pretendSavings) ? raw.pretendSavings.map(normalizePretend).filter(Boolean) : [];
-    pretendSavings.forEach((item) => {
-      if (item.categoryName) findOrCreateNamedInList(pretendCategories, item.categoryName, 'pcat');
-      if (item.destinationName && !destinations.some((dest) => dest.name === item.destinationName)) destinations.push({ id: createId('dest'), name: item.destinationName, targetAmount: 0, sortOrder: destinations.length, createdAt: nowIso(), updatedAt: nowIso() });
-    });
-    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, expenses, goals, savings, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [], pretendSavings, pretendCategories, destinations };
+    const expenses = Array.isArray(raw?.expenses) ? raw.expenses.map((item) => normalizeExpense(item, finalCategories, finalStores, budgets)).filter(Boolean) : [];
+    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, budgets, expenses, goals, savings, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [] };
   }
 
   function ensureState() { state = normalizeState(state); saveState(); }
@@ -213,25 +209,27 @@
   function switchTab(tabName) {
     els.tabs.forEach((tab) => tab.classList.toggle('is-active', tab.dataset.tab === tabName));
     els.panels.forEach((panel) => panel.classList.toggle('is-active', panel.id === `tab-${tabName}`));
+    if (tabName === 'budget') renderBudgetsDashboard();
     if (tabName === 'compare') renderCompare();
     if (tabName === 'achievements') renderAchievements();
   }
 
   function renderAll() {
-    renderCategorySelects(); renderStoreSelects(); renderTopTotal(); renderCompareControls(); renderCompare();
+    renderCategorySelects(); renderStoreSelects(); renderBudgetSelects(); renderSplitLines(); renderTopTotal(); renderBudgetsDashboard(); renderCompareControls(); renderCompare();
     renderHistoryFilters(); renderHistory(); renderGoalSelects(); renderGoals(); renderSavings();
-    renderCategories(); renderStores(); renderAchievements();
-    renderPretendSelects(); renderPretendStats(); renderPretendCharts(); renderPretendList(); renderPretendCategories(); renderDestinations();
-    saveState();
+    renderCategories(); renderStores(); renderBudgetSettings(); renderAchievements(); saveState();
   }
 
   function handleExpenseSubmit(event) {
     event.preventDefault();
+    if (els.splitModeInput.checked) return handleSplitExpenseSubmit();
     const amount = Number(els.amountInput.value);
     if (!Number.isFinite(amount) || amount <= 0) return showToast('金額を入力してください。');
     const category = getCategory(els.categoryInput.value) || state.categories[0];
     const store = getStore(els.storeInput.value) || state.stores[0];
+    const budget = getBudget(els.budgetInput.value);
     const phase = normalizePhase(els.phaseInput.value);
+    const isAllowance = Boolean(els.allowanceInput.checked);
     const payload = {
       date: els.dateInput.value,
       amount: Math.round(amount),
@@ -239,6 +237,11 @@
       storeId: store.id, storeName: store.name,
       paymentMethod: normalizePaymentMethod(els.paymentMethodInput.value),
       phase,
+      isAllowanceExpense: isAllowance,
+      budgetId: budget?.id || '',
+      budgetName: budget?.name || '',
+      receiptGroupId: '',
+      receiptTotal: '',
       memo: els.memoInput.value.trim(),
       updatedAt: nowIso()
     };
@@ -257,6 +260,50 @@
     renderAll();
   }
 
+  function handleSplitExpenseSubmit() {
+    const date = els.dateInput.value;
+    if (!date) return showToast('日付を入力してください。');
+    const store = getStore(els.storeInput.value) || state.stores[0];
+    const phase = normalizePhase(els.phaseInput.value);
+    const paymentMethod = normalizePaymentMethod(els.paymentMethodInput.value);
+    const rows = collectSplitRows().filter((row) => row.amount > 0);
+    if (rows.length < 2) return showToast('分割入力は2行以上入力してください。');
+    const receiptTotal = Math.round(Number(els.receiptTotalInput.value || 0));
+    const lineTotal = sum(rows.map((row) => row.amount));
+    if (receiptTotal > 0 && receiptTotal !== lineTotal && !confirm(`レシート合計と内訳合計に差額があります。\nレシート合計：${formatYen(receiptTotal)}\n内訳合計：${formatYen(lineTotal)}\nこのまま保存しますか？`)) return;
+    const groupId = createId('receipt');
+    rows.forEach((row) => {
+      const category = getCategory(row.categoryId) || state.categories[0];
+      const budget = getBudget(row.budgetId);
+      state.expenses.push({
+        id: createId('exp'), date, amount: row.amount,
+        categoryId: category.id, categoryName: category.name,
+        storeId: store.id, storeName: store.name,
+        paymentMethod, phase,
+        isAllowanceExpense: row.isAllowanceExpense,
+        budgetId: budget?.id || '', budgetName: budget?.name || '',
+        receiptGroupId: groupId,
+        receiptTotal: receiptTotal || lineTotal,
+        memo: row.memo,
+        createdAt: nowIso(), updatedAt: nowIso()
+      });
+    });
+    resetExpenseForm({ keepDate: true, keepStore: true, keepPhase: true });
+    showToast(`分割レシートを${rows.length}件保存しました。`);
+    renderAll();
+  }
+
+  function collectSplitRows() {
+    return $$('.split-line').map((line) => {
+      const amount = Math.round(Number(line.querySelector('[data-split-amount]')?.value || 0));
+      const categoryId = line.querySelector('[data-split-category]')?.value || state.categories[0]?.id || '';
+      const budgetId = line.querySelector('[data-split-budget]')?.value || '';
+      const isAllowanceExpense = Boolean(line.querySelector('[data-split-allowance]')?.checked);
+      const memo = line.querySelector('[data-split-memo]')?.value.trim() || '';
+      return { amount, categoryId, budgetId, isAllowanceExpense, memo };
+    });
+  }
+
   function resetExpenseForm(options = {}) {
     const keepDate = els.dateInput.value;
     const keepCategory = els.categoryInput.value;
@@ -269,14 +316,24 @@
     if (options.keepCategory && getCategory(keepCategory)) els.categoryInput.value = keepCategory;
     if (options.keepStore && getStore(keepStore)) els.storeInput.value = keepStore;
     if (options.keepPhase && phases.includes(keepPhase)) els.phaseInput.value = keepPhase;
+    els.budgetInput.value = '';
+    els.allowanceInput.checked = false;
+    els.splitModeInput.checked = false;
+    els.receiptTotalInput.value = '';
+    renderSplitLines();
+    handleSplitModeToggle();
   }
 
   function editExpense(id) {
     const item = state.expenses.find((expense) => expense.id === id);
     if (!item) return;
+    els.splitModeInput.checked = false;
+    handleSplitModeToggle();
     els.editId.value = item.id; els.dateInput.value = item.date; els.amountInput.value = item.amount;
     els.categoryInput.value = item.categoryId; els.storeInput.value = item.storeId; els.paymentMethodInput.value = item.paymentMethod;
     els.phaseInput.value = normalizePhase(item.phase); els.memoInput.value = item.memo || '';
+    els.budgetInput.value = item.budgetId || '';
+    els.allowanceInput.checked = Boolean(item.isAllowanceExpense);
     els.saveButton.textContent = '更新';
     switchTab('input'); window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -287,12 +344,103 @@
     renderAll(); showToast('支出を削除しました。');
   }
 
+  function handleAllowanceToggle() {
+    if (!els.allowanceInput.checked) return;
+    const allowance = findBudgetByName('お小遣い');
+    if (allowance) els.budgetInput.value = allowance.id;
+  }
+
+  function syncAllowanceFromBudget() {
+    const budget = getBudget(els.budgetInput.value);
+    els.allowanceInput.checked = budget?.name === 'お小遣い';
+  }
+
+  function handleSplitModeToggle() {
+    const enabled = Boolean(els.splitModeInput.checked);
+    els.splitEntryPanel.classList.toggle('is-hidden', !enabled);
+    $$('.normal-entry-only').forEach((el) => el.classList.toggle('is-hidden', enabled));
+    els.amountInput.required = !enabled;
+    els.categoryInput.required = !enabled;
+    if (enabled && $$('.split-line').length < 2) renderSplitLines();
+    updateSplitTotals();
+  }
+
+  function renderSplitLines(rows = null) {
+    const lineRows = rows || [createBlankSplitLine(), createBlankSplitLine()];
+    els.splitLineList.innerHTML = lineRows.map((row, index) => renderSplitLine(row, index)).join('');
+    bindSplitLineEvents();
+    updateSplitTotals();
+  }
+
+  function renderSplitLine(row, index) {
+    const categoryOptions = state.categories.map((cat) => `<option value="${escapeHtml(cat.id)}" ${row.categoryId === cat.id ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('');
+    const budgetOptions = budgetOptionsHtml(row.budgetId);
+    return `<div class="split-line" data-index="${index}">
+      <div class="split-line-head"><strong>内訳${index + 1}</strong><button type="button" class="icon-button" data-remove-split="${index}">削除</button></div>
+      <div class="grid two compact">
+        <label><span>金額</span><input type="number" data-split-amount inputmode="numeric" min="0" step="1" value="${escapeHtml(row.amount || '')}" placeholder="例：5000"></label>
+        <label><span>カテゴリ</span><select data-split-category>${categoryOptions}</select></label>
+      </div>
+      <div class="grid two compact">
+        <label><span>予算枠</span><select data-split-budget>${budgetOptions}</select></label>
+        <label class="check-label"><span>出どころ</span><label class="check-row"><input type="checkbox" data-split-allowance ${row.isAllowanceExpense ? 'checked' : ''}><span>お小遣いから</span></label></label>
+      </div>
+      <label><span>メモ</span><input data-split-memo value="${escapeHtml(row.memo || '')}" placeholder="例：食品 / ウイスキー"></label>
+    </div>`;
+  }
+
+  function bindSplitLineEvents() {
+    $$('[data-split-amount], [data-split-budget], [data-split-allowance], [data-split-memo]').forEach((input) => input.addEventListener('input', updateSplitTotals));
+    $$('[data-split-category]').forEach((input) => input.addEventListener('change', updateSplitTotals));
+    $$('[data-split-allowance]').forEach((input) => input.addEventListener('change', (event) => {
+      if (!event.target.checked) return;
+      const line = event.target.closest('.split-line');
+      const allowance = findBudgetByName('お小遣い');
+      if (allowance) line.querySelector('[data-split-budget]').value = allowance.id;
+      updateSplitTotals();
+    }));
+    $$('[data-split-budget]').forEach((input) => input.addEventListener('change', (event) => {
+      const line = event.target.closest('.split-line');
+      const budget = getBudget(event.target.value);
+      line.querySelector('[data-split-allowance]').checked = budget?.name === 'お小遣い';
+    }));
+    $$('[data-remove-split]').forEach((button) => button.addEventListener('click', () => removeSplitLine(Number(button.dataset.removeSplit))));
+  }
+
+  function addSplitLine() {
+    const rows = collectSplitRows();
+    rows.push(createBlankSplitLine());
+    renderSplitLines(rows);
+  }
+
+  function removeSplitLine(index) {
+    const rows = collectSplitRows();
+    if (rows.length <= 2) return showToast('分割入力は最低2行必要です。');
+    rows.splice(index, 1);
+    renderSplitLines(rows);
+  }
+
+  function createBlankSplitLine() {
+    return { amount: '', categoryId: state.categories[0]?.id || '', budgetId: '', isAllowanceExpense: false, memo: '' };
+  }
+
+  function updateSplitTotals() {
+    if (!els.splitLineTotal) return;
+    const lineTotal = sum(collectSplitRows().map((row) => row.amount));
+    const receiptTotal = Math.round(Number(els.receiptTotalInput.value || 0));
+    const diff = receiptTotal ? lineTotal - receiptTotal : 0;
+    els.splitLineTotal.textContent = formatYen(lineTotal);
+    els.splitDiffTotal.textContent = receiptTotal ? formatSignedYen(diff) : formatYen(0);
+    els.splitDiffTotal.className = diff === 0 ? 'positive' : 'negative';
+    els.splitDiffMessage.textContent = !receiptTotal ? 'レシート合計を入れると照合できます' : diff === 0 ? '✅ レシート合計と一致' : '⚠ レシート合計と内訳合計が一致していません';
+  }
+
   function handleNewCategoryInline() {
     const name = els.newCategoryInput.value.trim();
     if (!name) return;
     const category = addCategoryIfMissing(name);
     els.newCategoryInput.value = '';
-    renderCategorySelects(); els.categoryInput.value = category.id; renderCategories();
+    renderCategorySelects(); renderSplitLines(collectSplitRows()); els.categoryInput.value = category.id; renderCategories();
     showToast(`カテゴリ「${category.name}」を追加しました。`);
   }
 
@@ -309,11 +457,8 @@
   function renderStoreSelects() { els.storeInput.innerHTML = state.stores.map((store) => `<option value="${escapeHtml(store.id)}">${escapeHtml(store.name)}</option>`).join(''); }
 
   function renderTopTotal() {
-    const thisMonth = monthKey(new Date());
-    const total = sum(filterByMonth(state.expenses, thisMonth).map((item) => item.amount));
+    const total = sum(filterByMonth(state.expenses, monthKey(new Date())).map((item) => item.amount));
     els.monthTotalTop.textContent = formatYen(total);
-    const pretendTotal = sum(filterByMonth(state.pretendSavings, thisMonth).map((item) => item.amount));
-    els.pretendMonthTotalTop.textContent = formatYen(pretendTotal);
   }
 
   function setComparePreset(type) {
@@ -350,6 +495,7 @@
     renderCompareTable(els.categoryCompare, left, right, 'categoryName');
     renderCompareTable(els.methodCompare, left, right, 'paymentMethod');
     renderCompareTable(els.storeCompare, left, right, 'storeName');
+    renderCompareTable(els.budgetCompare, left, right, 'budgetName');
   }
 
   function getCompareResult(side) {
@@ -410,9 +556,19 @@
     const list = state.expenses.filter((item) => !month || monthKey(item.date) === month).filter((item) => !categoryId || item.categoryId === categoryId).filter((item) => !storeId || item.storeId === storeId).filter((item) => !method || item.paymentMethod === method).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     const total = sum(list.map((item) => item.amount));
     els.historyTotal.textContent = formatYen(total); els.historyCount.textContent = `${list.length}件`;
-    els.expenseList.innerHTML = list.length ? list.map((item) => `<article class="transaction-item"><div class="item-main"><strong>${escapeHtml(item.categoryName)} ${formatYen(item.amount)}</strong><div class="meta">${escapeHtml(item.date)} / ${escapeHtml(item.paymentMethod)} / ${escapeHtml(item.storeName || 'その他')} / ${escapeHtml(normalizePhase(item.phase))}${item.memo ? ` / ${escapeHtml(item.memo)}` : ''}</div></div><div class="item-actions"><button type="button" class="icon-button" data-edit-expense="${escapeHtml(item.id)}">編集</button><button type="button" class="icon-button" data-delete-expense="${escapeHtml(item.id)}">削除</button></div></article>`).join('') : '<p class="hint">この条件の履歴はありません。</p>';
+    els.expenseList.innerHTML = list.length ? list.map((item) => renderExpenseItem(item)).join('') : '<p class="hint">この条件の履歴はありません。</p>';
     $$('[data-edit-expense]').forEach((button) => button.addEventListener('click', () => editExpense(button.dataset.editExpense)));
     $$('[data-delete-expense]').forEach((button) => button.addEventListener('click', () => deleteExpense(button.dataset.deleteExpense)));
+  }
+
+
+  function renderExpenseItem(item) {
+    const tags = [item.date, item.paymentMethod, item.storeName || 'その他', normalizePhase(item.phase)];
+    if (item.budgetName) tags.push(`予算:${item.budgetName}`);
+    if (item.isAllowanceExpense) tags.push('お小遣い');
+    if (item.receiptGroupId) tags.push(`分割レシート${item.receiptTotal ? ` 合計${formatYen(item.receiptTotal)}` : ''}`);
+    if (item.memo) tags.push(item.memo);
+    return `<article class="transaction-item ${item.receiptGroupId ? 'split-history-item' : ''}"><div class="item-main"><strong>${escapeHtml(item.categoryName)} ${formatYen(item.amount)}</strong><div class="meta">${tags.map(escapeHtml).join(' / ')}</div></div><div class="item-actions"><button type="button" class="icon-button" data-edit-expense="${escapeHtml(item.id)}">編集</button><button type="button" class="icon-button" data-delete-expense="${escapeHtml(item.id)}">削除</button></div></article>`;
   }
 
   function handleGoalSubmit(event) {
@@ -476,247 +632,62 @@
 
   function getGoalProgress(goalId) { const goal = state.goals.find((item) => item.id === goalId); const linkedSavings = state.savings.filter((item) => item.goalId === goalId); const linkedAmount = sum(linkedSavings.map((item) => item.balance)); return { currentAmount: (goal?.manualAmount || 0) + linkedAmount, linkedSavings, linkedAmount }; }
 
-  function handlePretendSubmit(event) {
-    event.preventDefault();
-    const amount = Number(els.pretendAmountInput.value);
-    if (!Number.isFinite(amount) || amount <= 0) return showToast('金額を入力してください。');
-    const title = els.pretendTitleInput.value.trim();
-    if (!title) return showToast('やめた支出名を入力してください。');
-    if (!els.pretendDateInput.value) return showToast('日付を入力してください。');
-    const payload = {
-      date: els.pretendDateInput.value,
-      title,
-      amount: Math.round(amount),
-      categoryName: els.pretendCategoryInput.value || '',
-      destinationName: els.pretendDestinationInput.value || '',
-      memo: els.pretendMemoInput.value.trim(),
-      updatedAt: nowIso()
-    };
-    const editId = els.pretendEditId.value;
-    if (editId) {
-      const existing = state.pretendSavings.find((item) => item.id === editId);
-      if (!existing) return showToast('編集対象が見つかりません。');
-      Object.assign(existing, payload);
-      showToast('使ったつもり貯金を更新しました。');
-    } else {
-      state.pretendSavings.push({ id: createId('pretend'), ...payload, createdAt: nowIso() });
-      showToast(`${formatYen(payload.amount)}を未来に回しました。`);
-    }
-    resetPretendForm({ keepDate: true, keepCategory: true, keepDestination: true });
-    renderAll();
+  function renderBudgetSelects() {
+    if (!els.budgetInput) return;
+    els.budgetInput.innerHTML = '<option value="">予算対象外</option>' + state.budgets.filter((budget) => budget.enabled !== false).map((budget) => `<option value="${escapeHtml(budget.id)}">${escapeHtml(budget.name)}</option>`).join('');
+    $$('[data-split-budget]').forEach((select) => { const current = select.value; select.innerHTML = budgetOptionsHtml(current); if (getBudget(current)) select.value = current; });
   }
 
-  function resetPretendForm(options = {}) {
-    const keepDate = els.pretendDateInput.value;
-    const keepCategory = els.pretendCategoryInput.value;
-    const keepDestination = els.pretendDestinationInput.value;
-    els.pretendForm.reset();
-    els.pretendEditId.value = '';
-    els.pretendSaveButton.textContent = '保存';
-    els.pretendDateInput.value = options.keepDate && keepDate ? keepDate : dateKey(new Date());
-    if (options.keepCategory) els.pretendCategoryInput.value = keepCategory;
-    if (options.keepDestination) els.pretendDestinationInput.value = keepDestination;
+  function budgetOptionsHtml(selectedId = '') {
+    return '<option value="">予算対象外</option>' + state.budgets.filter((budget) => budget.enabled !== false).map((budget) => `<option value="${escapeHtml(budget.id)}" ${selectedId === budget.id ? 'selected' : ''}>${escapeHtml(budget.name)}</option>`).join('');
   }
 
-  function editPretend(id) {
-    const item = state.pretendSavings.find((entry) => entry.id === id);
-    if (!item) return;
-    els.pretendEditId.value = item.id; els.pretendDateInput.value = item.date; els.pretendTitleInput.value = item.title; els.pretendAmountInput.value = item.amount;
-    els.pretendCategoryInput.value = item.categoryName || ''; els.pretendDestinationInput.value = item.destinationName || ''; els.pretendMemoInput.value = item.memo || '';
-    els.pretendSaveButton.textContent = '更新';
-    switchTab('pretend'); window.scrollTo({ top: 0, behavior: 'smooth' });
+  function renderBudgetsDashboard() {
+    const month = els.budgetMonthInput.value || monthKey(new Date());
+    const stats = getBudgetStats(month);
+    els.budgetLimitTotal.textContent = formatYen(stats.limitTotal);
+    els.budgetUsedTotal.textContent = formatYen(stats.usedTotal);
+    els.budgetRemainTotal.textContent = formatYen(stats.remainTotal);
+    els.budgetOverCount.textContent = `${stats.overCount}件`;
+    els.budgetCardList.innerHTML = stats.items.length ? stats.items.map(renderBudgetCard).join('') : '<div class="card"><p class="hint">予算項目がありません。設定から追加してください。</p></div>';
   }
 
-  function deletePretend(id) {
-    if (!confirm('この使ったつもり貯金を削除しますか？')) return;
-    state.pretendSavings = state.pretendSavings.filter((item) => item.id !== id);
-    renderAll(); showToast('削除しました。');
-  }
-
-  function renderPretendSelects() {
-    els.pretendCategoryInput.innerHTML = '<option value="">未分類</option>' + state.pretendCategories.map((cat) => `<option value="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</option>`).join('');
-    els.pretendDestinationInput.innerHTML = '<option value="">未定</option>' + state.destinations.map((dest) => `<option value="${escapeHtml(dest.name)}">${escapeHtml(dest.name)}</option>`).join('');
-    const titles = unique(state.pretendSavings.map((item) => item.title));
-    els.pretendTitleSuggestions.innerHTML = titles.map((title) => `<option value="${escapeHtml(title)}"></option>`).join('');
-  }
-
-  function renderPretendStats() {
-    const today = new Date();
-    const thisMonth = monthKey(today);
-    const thisYear = String(today.getFullYear());
-    const monthTotal = sum(filterByMonth(state.pretendSavings, thisMonth).map((item) => item.amount));
-    const yearItems = state.pretendSavings.filter((item) => item.date.startsWith(`${thisYear}-`));
-    const yearTotal = sum(yearItems.map((item) => item.amount));
-    const grandTotal = sum(state.pretendSavings.map((item) => item.amount));
-    const dayOfYear = Math.max(1, Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000));
-    const pace = yearTotal > 0 ? Math.round(yearTotal / dayOfYear * 365) : 0;
-    els.pretendMonthTotal.textContent = formatYen(monthTotal);
-    els.pretendStatMonth.textContent = formatYen(monthTotal);
-    els.pretendStatYear.textContent = formatYen(yearTotal);
-    els.pretendStatTotal.textContent = formatYen(grandTotal);
-    els.pretendStatPace.textContent = pace ? `約${formatYen(pace)}` : '¥0';
-    renderPretendMessages({ monthTotal, yearTotal, grandTotal, pace });
-  }
-
-  function renderPretendMessages({ monthTotal, grandTotal, pace }) {
-    const lines = [];
-    if (monthTotal > 0) lines.push(`今月、${formatYen(monthTotal)}を未来に回しました。`);
-    if (pace > 0) lines.push(`このペースなら、年間 約${formatYen(pace)} を守れます。`);
-    const destTotals = groupPretendSum('destinationName');
-    state.destinations.filter((dest) => dest.targetAmount > 0).slice(0, 3).forEach((dest) => {
-      const current = destTotals[dest.name] || 0;
-      if (current >= dest.targetAmount) lines.push(`「${dest.name}」の目標を達成しました！`);
-      else if (current > 0) lines.push(`「${dest.name}」まであと${formatYen(dest.targetAmount - current)}。`);
+  function getBudgetStats(month) {
+    const activeBudgets = state.budgets.filter((budget) => budget.enabled !== false);
+    const monthItems = filterByMonth(state.expenses, month).filter((item) => item.budgetId);
+    const items = activeBudgets.map((budget) => {
+      const used = sum(monthItems.filter((item) => item.budgetId === budget.id || item.budgetName === budget.name).map((item) => item.amount));
+      const limit = Math.max(0, Number(budget.monthlyLimit || 0));
+      const remaining = limit - used;
+      const rate = limit > 0 ? used / limit * 100 : used > 0 ? 100 : 0;
+      return { budget, used, limit, remaining, rate, status: budgetStatus(rate, limit, used) };
     });
-    if (grandTotal > 0 && lines.length < 4) lines.push(`累計 ${formatYen(grandTotal)} が未来に回っています。`);
-    els.pretendMessages.innerHTML = lines.length
-      ? lines.map((line) => `<p class="pretend-message">🌱 ${escapeHtml(line)}</p>`).join('')
-      : '<p class="hint">今日の踏みとどまりを1件記録すると、ここに成果が表示されます。</p>';
+    return {
+      items,
+      limitTotal: sum(items.map((item) => item.limit)),
+      usedTotal: sum(items.map((item) => item.used)),
+      remainTotal: sum(items.map((item) => item.remaining)),
+      overCount: items.filter((item) => item.status.key === 'over').length
+    };
   }
 
-  function groupPretendSum(key) {
-    return state.pretendSavings.reduce((map, item) => {
-      const label = item[key] || (key === 'destinationName' ? '未定' : '未分類');
-      map[label] = (map[label] || 0) + Number(item.amount || 0);
-      return map;
-    }, {});
+  function budgetStatus(rate, limit, used) {
+    if (!limit && used > 0) return { key: 'over', label: '🔥 予算未設定で使用あり' };
+    if (rate >= 100) return { key: 'over', label: '🔥 予算オーバー' };
+    if (rate >= 90) return { key: 'danger', label: '🚨 残りわずか' };
+    if (rate >= 70) return { key: 'warn', label: '⚠ そろそろ注意' };
+    return { key: 'safe', label: '✅ 通常ペース' };
   }
 
-  function renderPretendCharts() {
-    const byMonth = state.pretendSavings.reduce((map, item) => { const key = monthKey(item.date); map[key] = (map[key] || 0) + item.amount; return map; }, {});
-    const months = Object.keys(byMonth).sort().slice(-12);
-    renderBarChart(els.pretendMonthChart, months.map((month) => [formatMonthLabel(month), byMonth[month]]), 'まだ記録がありません。');
-    const destEntries = Object.entries(groupPretendSum('destinationName')).sort((a, b) => b[1] - a[1]);
-    renderBarChart(els.pretendDestinationChart, destEntries, '回した先の記録がありません。');
-    const catEntries = Object.entries(groupPretendSum('categoryName')).sort((a, b) => b[1] - a[1]);
-    renderBarChart(els.pretendCategoryChart, catEntries, 'カテゴリの記録がありません。');
-    renderPretendRanking();
-    renderDestinationProgress();
-  }
-
-  function renderBarChart(target, entries, emptyText) {
-    if (!entries.length) { target.innerHTML = `<p class="hint">${escapeHtml(emptyText)}</p>`; return; }
-    const max = Math.max(...entries.map(([, value]) => value), 1);
-    target.innerHTML = entries.map(([label, value]) => {
-      const percent = Math.max(2, Math.round(value / max * 100));
-      return `<div class="bar-row"><span class="bar-label">${escapeHtml(label)}</span><div class="bar-track"><span class="bar-fill" style="width:${percent}%"></span></div><span class="bar-value">${formatYen(value)}</span></div>`;
-    }).join('');
-  }
-
-  function renderPretendRanking() {
-    const byTitle = state.pretendSavings.reduce((map, item) => { const entry = map[item.title] || { count: 0, total: 0 }; entry.count += 1; entry.total += item.amount; map[item.title] = entry; return map; }, {});
-    const ranked = Object.entries(byTitle).sort((a, b) => b[1].count - a[1].count || b[1].total - a[1].total).slice(0, 10);
-    els.pretendRanking.innerHTML = ranked.length
-      ? ranked.map(([title, info], index) => `<div class="ranking-item"><span class="ranking-rank">${index + 1}位</span><strong>${escapeHtml(title)}</strong><span class="meta">${info.count}回 / ${formatYen(info.total)}</span></div>`).join('')
-      : '<p class="hint">まだ記録がありません。</p>';
-  }
-
-  function renderDestinationProgress() {
-    const destTotals = groupPretendSum('destinationName');
-    const withTarget = state.destinations.filter((dest) => dest.targetAmount > 0);
-    els.pretendDestinationProgress.innerHTML = withTarget.length
-      ? withTarget.map((dest) => {
-        const current = destTotals[dest.name] || 0;
-        const percent = Math.min(100, Math.round(current / dest.targetAmount * 100));
-        return `<article class="goal-item"><div class="item-main"><strong>${escapeHtml(dest.name)}</strong><div class="meta">${formatYen(current)} / ${formatYen(dest.targetAmount)}　${percent}%達成</div><div class="progress"><span style="width:${percent}%"></span></div></div></article>`;
-      }).join('')
-      : '<p class="hint">目標金額が設定された回した先はありません。</p>';
-  }
-
-  function renderPretendList() {
-    const month = els.pretendMonthFilter.value;
-    const list = state.pretendSavings
-      .filter((item) => !month || monthKey(item.date) === month)
-      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
-    els.pretendListTotal.textContent = formatYen(sum(list.map((item) => item.amount)));
-    els.pretendListCount.textContent = `${list.length}件`;
-    els.pretendList.innerHTML = list.length
-      ? list.map((item) => `<article class="transaction-item"><div class="item-main"><strong>${escapeHtml(item.title)} ${formatYen(item.amount)}</strong><div class="meta">${escapeHtml(item.date)} / ${escapeHtml(item.categoryName || '未分類')} / 回した先：${escapeHtml(item.destinationName || '未定')}${item.memo ? ` / ${escapeHtml(item.memo)}` : ''}</div></div><div class="item-actions"><button type="button" class="icon-button" data-edit-pretend="${escapeHtml(item.id)}">編集</button><button type="button" class="icon-button" data-delete-pretend="${escapeHtml(item.id)}">削除</button></div></article>`).join('')
-      : '<p class="hint">この条件の記録はありません。</p>';
-    $$('[data-edit-pretend]').forEach((button) => button.addEventListener('click', () => editPretend(button.dataset.editPretend)));
-    $$('[data-delete-pretend]').forEach((button) => button.addEventListener('click', () => deletePretend(button.dataset.deletePretend)));
-  }
-
-  function handlePretendCategorySubmit(event) {
-    event.preventDefault();
-    const name = els.pretendCategoryNameInput.value.trim();
-    if (!name) return showToast('カテゴリ名を入力してください。');
-    const id = els.pretendCategoryIdInput.value;
-    if (id) {
-      const category = state.pretendCategories.find((item) => item.id === id);
-      if (!category) return showToast('編集対象が見つかりません。');
-      if (state.pretendCategories.some((item) => item.name === name && item.id !== id)) return showToast('同じカテゴリ名があります。');
-      const oldName = category.name;
-      category.name = name; category.updatedAt = nowIso();
-      state.pretendSavings.forEach((item) => { if (item.categoryName === oldName) item.categoryName = name; });
-      showToast('カテゴリを更新しました。');
-    } else {
-      if (state.pretendCategories.some((item) => item.name === name)) return showToast('同じカテゴリ名があります。');
-      state.pretendCategories.push({ id: createId('pcat'), name, sortOrder: state.pretendCategories.length, createdAt: nowIso(), updatedAt: nowIso() });
-      showToast('カテゴリを追加しました。');
-    }
-    resetPretendCategoryForm(); renderAll();
-  }
-
-  function renderPretendCategories() {
-    els.pretendCategoryList.innerHTML = state.pretendCategories.map((cat) => `<div class="category-chip"><strong>${escapeHtml(cat.name)}</strong><div class="item-actions"><button type="button" class="icon-button" data-edit-pcat="${escapeHtml(cat.id)}">編集</button><button type="button" class="icon-button" data-delete-pcat="${escapeHtml(cat.id)}">削除</button></div></div>`).join('');
-    $$('[data-edit-pcat]').forEach((button) => button.addEventListener('click', () => editPretendCategory(button.dataset.editPcat)));
-    $$('[data-delete-pcat]').forEach((button) => button.addEventListener('click', () => deletePretendCategory(button.dataset.deletePcat)));
-  }
-
-  function editPretendCategory(id) { const category = state.pretendCategories.find((item) => item.id === id); if (!category) return; els.pretendCategoryIdInput.value = category.id; els.pretendCategoryNameInput.value = category.name; els.pretendCategorySaveButton.textContent = 'カテゴリを更新'; }
-  function deletePretendCategory(id) { const category = state.pretendCategories.find((item) => item.id === id); if (!category) return; if (state.pretendSavings.some((item) => item.categoryName === category.name)) return showToast('使用中のカテゴリは削除できません。先に記録を編集してください。'); if (!confirm(`カテゴリ「${category.name}」を削除しますか？`)) return; state.pretendCategories = state.pretendCategories.filter((item) => item.id !== id); renderAll(); showToast('カテゴリを削除しました。'); }
-  function resetPretendCategoryForm() { els.pretendCategoryForm.reset(); els.pretendCategoryIdInput.value = ''; els.pretendCategorySaveButton.textContent = 'カテゴリを保存'; }
-
-  function handleDestinationSubmit(event) {
-    event.preventDefault();
-    const name = els.destinationNameInput.value.trim();
-    if (!name) return showToast('回した先の名前を入力してください。');
-    const targetAmount = Number(els.destinationTargetInput.value || 0);
-    const target = Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0;
-    const id = els.destinationIdInput.value;
-    if (id) {
-      const destination = state.destinations.find((item) => item.id === id);
-      if (!destination) return showToast('編集対象が見つかりません。');
-      if (state.destinations.some((item) => item.name === name && item.id !== id)) return showToast('同じ回した先があります。');
-      const oldName = destination.name;
-      destination.name = name; destination.targetAmount = target; destination.updatedAt = nowIso();
-      state.pretendSavings.forEach((item) => { if (item.destinationName === oldName) item.destinationName = name; });
-      showToast('回した先を更新しました。');
-    } else {
-      if (state.destinations.some((item) => item.name === name)) return showToast('同じ回した先があります。');
-      state.destinations.push({ id: createId('dest'), name, targetAmount: target, sortOrder: state.destinations.length, createdAt: nowIso(), updatedAt: nowIso() });
-      showToast('回した先を追加しました。');
-    }
-    resetDestinationForm(); renderAll();
-  }
-
-  function renderDestinations() {
-    els.destinationList.innerHTML = state.destinations.map((dest) => `<div class="category-chip"><strong>${escapeHtml(dest.name)}</strong><span class="meta">${dest.targetAmount > 0 ? `目標 ${formatYen(dest.targetAmount)}` : '目標なし'}</span><div class="item-actions"><button type="button" class="icon-button" data-edit-dest="${escapeHtml(dest.id)}">編集</button><button type="button" class="icon-button" data-delete-dest="${escapeHtml(dest.id)}">削除</button></div></div>`).join('');
-    $$('[data-edit-dest]').forEach((button) => button.addEventListener('click', () => editDestination(button.dataset.editDest)));
-    $$('[data-delete-dest]').forEach((button) => button.addEventListener('click', () => deleteDestination(button.dataset.deleteDest)));
-  }
-
-  function editDestination(id) { const destination = state.destinations.find((item) => item.id === id); if (!destination) return; els.destinationIdInput.value = destination.id; els.destinationNameInput.value = destination.name; els.destinationTargetInput.value = destination.targetAmount || 0; els.destinationSaveButton.textContent = '回した先を更新'; }
-  function deleteDestination(id) { const destination = state.destinations.find((item) => item.id === id); if (!destination) return; if (state.pretendSavings.some((item) => item.destinationName === destination.name)) return showToast('使用中の回した先は削除できません。先に記録を編集してください。'); if (!confirm(`回した先「${destination.name}」を削除しますか？`)) return; state.destinations = state.destinations.filter((item) => item.id !== id); renderAll(); showToast('回した先を削除しました。'); }
-  function resetDestinationForm() { els.destinationForm.reset(); els.destinationIdInput.value = ''; els.destinationTargetInput.value = '0'; els.destinationSaveButton.textContent = '回した先を保存'; }
-
-  function addPretendSampleData() {
-    const today = dateKey(new Date());
-    const samples = [
-      { title: 'ホワサバ課金', amount: 150, categoryName: 'ゲーム課金', destinationName: 'リフォーム資金', memo: '少額だけど今月は我慢' },
-      { title: 'コンビニお菓子', amount: 300, categoryName: 'コンビニ', destinationName: 'NISA', memo: '家にあるもので済ませた' },
-      { title: 'タバコを吸ったつもり', amount: 500, categoryName: 'タバコ', destinationName: '車検代', memo: '吸ったつもり貯金' }
-    ];
-    samples.forEach((sample) => state.pretendSavings.push({ id: createId('pretend'), date: today, ...sample, createdAt: nowIso(), updatedAt: nowIso() }));
-    renderAll(); showToast('サンプルデータを3件追加しました。');
-  }
-
-  function deleteAllPretendData() {
-    if (!state.pretendSavings.length) return showToast('削除する記録がありません。');
-    if (!confirm(`使ったつもり貯金の記録${state.pretendSavings.length}件をすべて削除しますか？\nカテゴリ・回した先の設定は残ります。`)) return;
-    state.pretendSavings = [];
-    renderAll(); showToast('使ったつもり貯金の記録を全削除しました。');
+  function renderBudgetCard(item) {
+    const percent = item.limit > 0 ? Math.min(120, Math.round(item.rate)) : item.used > 0 ? 100 : 0;
+    const remainLabel = item.remaining >= 0 ? `残り ${formatYen(item.remaining)}` : `超過 ${formatYen(Math.abs(item.remaining))}`;
+    return `<article class="budget-card ${escapeHtml(item.status.key)}">
+      <div class="budget-card-top"><div><strong>${escapeHtml(item.budget.name)}</strong><span>${escapeHtml(item.status.label)}</span></div><em>${Math.round(item.rate)}%</em></div>
+      <div class="budget-amounts"><div><span>月予算</span><strong>${formatYen(item.limit)}</strong></div><div><span>使用済み</span><strong>${formatYen(item.used)}</strong></div><div><span>${item.remaining >= 0 ? '残り' : '超過'}</span><strong class="${item.remaining < 0 ? 'negative' : 'positive'}">${formatYen(Math.abs(item.remaining))}</strong></div></div>
+      <div class="progress budget-progress"><span style="width:${Math.min(100, percent)}%"></span></div>
+      <p class="hint">${escapeHtml(remainLabel)}</p>
+    </article>`;
   }
 
   function renderAchievements() {
@@ -734,7 +705,45 @@
 
   function buildAchievementFacts(month) {
     const monthItems = filterByMonth(state.expenses, month); const totalEntries = state.expenses.length; const dates = unique(state.expenses.map((item) => item.date)).sort();
-    return { totalEntries, julyEntries: state.expenses.filter((item) => monthKey(item.date) === '2026-07').length, recordDays: unique(monthItems.map((item) => item.date)).length, bestStreak: calcBestStreak(dates), categoryCount: unique(monthItems.map((item) => item.categoryName)).length, storeCount: unique(monthItems.map((item) => item.storeName)).length, totalStoreCount: unique(state.expenses.map((item) => item.storeName)).length, methodCount: unique(monthItems.map((item) => item.paymentMethod)).length, memoEntries: state.expenses.filter((item) => item.memo).length, monthCount: unique(state.expenses.map((item) => monthKey(item.date))).length, yearCount: unique(state.expenses.map((item) => item.date.slice(0, 4))).length, newLifeEntries: state.expenses.filter((item) => normalizePhase(item.phase) === '新生活').length, whiskyEntries: state.expenses.filter((item) => item.categoryName.includes('ウイスキー')).length, gameEntries: state.expenses.filter((item) => item.categoryName.includes('ゲーム')).length, goalCount: state.goals.length, savingCount: state.savings.length, linkedSavingCount: state.savings.filter((item) => item.goalId).length, goalAchievedCount: state.goals.filter((goal) => getGoalProgress(goal.id).currentAmount >= goal.targetAmount).length };
+    const budgetStats = getBudgetStats(month);
+    const splitGroups = unique(state.expenses.filter((item) => item.receiptGroupId).map((item) => item.receiptGroupId));
+    const trialSplitGroups = unique(state.expenses.filter((item) => item.receiptGroupId && (item.storeName || '').includes('トライアル')).map((item) => item.receiptGroupId));
+    const matchedSplitGroups = splitGroups.filter((groupId) => {
+      const group = state.expenses.filter((item) => item.receiptGroupId === groupId);
+      const total = Number(group[0]?.receiptTotal || 0);
+      return total > 0 && total === sum(group.map((item) => item.amount));
+    });
+    return {
+      totalEntries,
+      julyEntries: state.expenses.filter((item) => monthKey(item.date) === '2026-07').length,
+      recordDays: unique(monthItems.map((item) => item.date)).length,
+      bestStreak: calcBestStreak(dates),
+      categoryCount: unique(monthItems.map((item) => item.categoryName)).length,
+      storeCount: unique(monthItems.map((item) => item.storeName)).length,
+      totalStoreCount: unique(state.expenses.map((item) => item.storeName)).length,
+      methodCount: unique(monthItems.map((item) => item.paymentMethod)).length,
+      memoEntries: state.expenses.filter((item) => item.memo).length,
+      monthCount: unique(state.expenses.map((item) => monthKey(item.date))).length,
+      yearCount: unique(state.expenses.map((item) => item.date.slice(0, 4))).length,
+      newLifeEntries: state.expenses.filter((item) => normalizePhase(item.phase) === '新生活').length,
+      whiskyEntries: state.expenses.filter((item) => item.categoryName.includes('ウイスキー') || item.categoryName.includes('酒')).length,
+      gameEntries: state.expenses.filter((item) => item.categoryName.includes('ゲーム')).length,
+      budgetCount: state.budgets.length,
+      allowanceEntries: state.expenses.filter((item) => item.isAllowanceExpense).length,
+      foodBudgetSet: state.budgets.some((item) => item.name.includes('食費') && Number(item.monthlyLimit) > 0) ? 1 : 0,
+      funBudgetSet: state.budgets.some((item) => item.name.includes('娯楽') && Number(item.monthlyLimit) > 0) ? 1 : 0,
+      safeBudgetCount: budgetStats.items.filter((item) => item.limit > 0 && item.used > 0 && item.rate < 70).length,
+      nearBudgetCount: budgetStats.items.filter((item) => item.limit > 0 && item.rate >= 90 && item.rate < 100).length,
+      overBudgetCount: budgetStats.items.filter((item) => item.status.key === 'over').length,
+      splitReceiptGroups: splitGroups.length,
+      trialSplitGroups: trialSplitGroups.length,
+      whiskySplitEntries: state.expenses.filter((item) => item.receiptGroupId && (item.categoryName.includes('ウイスキー') || item.categoryName.includes('酒'))).length,
+      matchedSplitGroups: matchedSplitGroups.length,
+      goalCount: state.goals.length,
+      savingCount: state.savings.length,
+      linkedSavingCount: state.savings.filter((item) => item.goalId).length,
+      goalAchievedCount: state.goals.filter((goal) => getGoalProgress(goal.id).currentAmount >= goal.targetAmount).length
+    };
   }
 
   function handleCategorySubmit(event) {
@@ -759,6 +768,52 @@
   function deleteStore(id) { if (state.stores.length <= 1) return showToast('お店は最低1つ必要です。'); const store = getStore(id); if (!store) return; if (state.expenses.some((expense) => expense.storeId === id)) return showToast('使用中のお店は削除できません。先に履歴を編集してください。'); if (!confirm(`お店「${store.name}」を削除しますか？`)) return; state.stores = state.stores.filter((item) => item.id !== id); renderAll(); showToast('お店を削除しました。'); }
   function resetStoreForm() { els.storeForm.reset(); els.storeIdInput.value = ''; els.storeSaveButton.textContent = 'お店を保存'; }
 
+
+  function handleBudgetSubmit(event) {
+    event.preventDefault();
+    const name = els.budgetNameInput.value.trim();
+    const monthlyLimit = Number(els.budgetLimitInput.value || 0);
+    if (!name) return showToast('予算名を入力してください。');
+    if (!Number.isFinite(monthlyLimit) || monthlyLimit < 0) return showToast('月予算額は0円以上で入力してください。');
+    const id = els.budgetIdInput.value;
+    const enabled = els.budgetEnabledInput.value !== 'false';
+    if (id) {
+      const budget = state.budgets.find((item) => item.id === id);
+      if (!budget) return showToast('編集対象が見つかりません。');
+      if (state.budgets.some((item) => item.name === name && item.id !== id)) return showToast('同じ予算名があります。');
+      const oldName = budget.name;
+      Object.assign(budget, { name, monthlyLimit: Math.round(monthlyLimit), enabled, updatedAt: nowIso() });
+      state.expenses.forEach((expense) => { if (expense.budgetId === id || expense.budgetName === oldName) { expense.budgetId = id; expense.budgetName = name; } });
+      showToast('予算項目を更新しました。');
+    } else {
+      if (state.budgets.some((item) => item.name === name)) return showToast('同じ予算名があります。');
+      state.budgets.push({ id: createId('budget'), name, monthlyLimit: Math.round(monthlyLimit), enabled, sortOrder: state.budgets.length, createdAt: nowIso(), updatedAt: nowIso() });
+      showToast('予算項目を追加しました。');
+    }
+    resetBudgetForm(); renderAll();
+  }
+
+  function renderBudgetSettings() {
+    els.budgetList.innerHTML = state.budgets.map((budget) => `<div class="category-chip"><strong>${escapeHtml(budget.name)} <span class="pill">${formatYen(budget.monthlyLimit || 0)}</span> ${budget.enabled === false ? '<span class="pill">OFF</span>' : ''}</strong><div class="item-actions"><button type="button" class="icon-button" data-edit-budget="${escapeHtml(budget.id)}">編集</button><button type="button" class="icon-button" data-delete-budget="${escapeHtml(budget.id)}">削除</button></div></div>`).join('');
+    $$('[data-edit-budget]').forEach((button) => button.addEventListener('click', () => editBudget(button.dataset.editBudget)));
+    $$('[data-delete-budget]').forEach((button) => button.addEventListener('click', () => deleteBudget(button.dataset.deleteBudget)));
+  }
+
+  function editBudget(id) {
+    const budget = getBudget(id); if (!budget) return;
+    els.budgetIdInput.value = budget.id; els.budgetNameInput.value = budget.name; els.budgetLimitInput.value = budget.monthlyLimit || 0; els.budgetEnabledInput.value = budget.enabled === false ? 'false' : 'true'; els.budgetSaveButton.textContent = '予算を更新';
+  }
+
+  function deleteBudget(id) {
+    const budget = getBudget(id); if (!budget) return;
+    if (state.expenses.some((expense) => expense.budgetId === id)) return showToast('使用中の予算項目は削除できません。先に履歴を編集してください。');
+    if (!confirm(`予算「${budget.name}」を削除しますか？`)) return;
+    state.budgets = state.budgets.filter((item) => item.id !== id);
+    renderAll(); showToast('予算項目を削除しました。');
+  }
+
+  function resetBudgetForm() { els.budgetForm.reset(); els.budgetIdInput.value = ''; els.budgetLimitInput.value = ''; els.budgetEnabledInput.value = 'true'; els.budgetSaveButton.textContent = '予算を保存'; }
+
   function importBackup(rows) {
     const objects = rowsToObjects(rows); if (!objects.length) return showToast('読み込めるデータがありません。');
     if (!('section' in objects[0])) { importExpenses(rows); return; }
@@ -766,23 +821,18 @@
     state.categories = mergeByName(state.categories, importedCategories);
     const importedStores = objects.filter((obj) => obj.section === 'store').map(normalizeStore).filter(Boolean);
     state.stores = mergeByName(state.stores, importedStores);
+    const importedBudgets = objects.filter((obj) => obj.section === 'budget').map(normalizeBudget).filter(Boolean);
+    state.budgets = mergeBudgets(state.budgets, importedBudgets);
     const importedGoals = objects.filter((obj) => obj.section === 'goal').map(normalizeGoal).filter(Boolean);
     mergeByIdOrSignature(state.goals, importedGoals, (goal) => `${goal.title}|${goal.targetAmount}|${goal.dueDate}`);
     const importedSavings = objects.filter((obj) => obj.section === 'saving').map((obj) => normalizeSaving(obj, state.goals)).filter(Boolean);
     mergeByIdOrSignature(state.savings, importedSavings, (saving) => `${saving.name}|${saving.type}`);
-    const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => normalizeExpense(obj, state.categories, state.stores)).filter(Boolean);
+    const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => normalizeExpense(obj, state.categories, state.stores, state.budgets)).filter(Boolean);
     mergeByIdOrSignature(state.expenses, importedExpenses, expenseSignature);
-    const importedPretendCategories = objects.filter((obj) => obj.section === 'pretend_category').map(normalizeCategory).filter(Boolean);
-    state.pretendCategories = mergeByName(state.pretendCategories, importedPretendCategories);
-    const importedDestinations = objects.filter((obj) => obj.section === 'destination').map(normalizeDestination).filter(Boolean);
-    state.destinations = mergeDestinations(importedDestinations, state.destinations);
-    const importedPretend = objects.filter((obj) => obj.section === 'pretend_saving' || obj.type === 'pretend_saving').map(normalizePretend).filter(Boolean);
-    mergeByIdOrSignature(state.pretendSavings, importedPretend, pretendSignature);
-    state = normalizeState(state);
-    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・つもり貯金${importedPretend.length}件`);
+    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・予算${importedBudgets.length}件`);
   }
 
-  function importExpenses(rows) { const imported = rowsToObjects(rows).map((obj) => normalizeExpense(obj, state.categories, state.stores)).filter(Boolean); mergeByIdOrSignature(state.expenses, imported, expenseSignature); renderAll(); showToast(`支出CSVから${imported.length}件読み込みました。`); }
+  function importExpenses(rows) { const imported = rowsToObjects(rows).map((obj) => normalizeExpense(obj, state.categories, state.stores, state.budgets)).filter(Boolean); mergeByIdOrSignature(state.expenses, imported, expenseSignature); renderAll(); showToast(`支出CSVから${imported.length}件読み込みました。`); }
 
   function importCsvFile(event, handler) {
     const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader();
@@ -791,81 +841,57 @@
   }
 
   function backupToRows() {
-    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'linked_goal_title', 'linked_goal_id', 'memo', 'created_at', 'updated_at', 'destination'];
+    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'budget_name', 'budget_id', 'is_allowance_expense', 'receipt_group_id', 'receipt_total', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'monthly_limit', 'enabled', 'linked_goal_title', 'linked_goal_id', 'memo', 'created_at', 'updated_at'];
     const rows = [header];
-    state.expenses.forEach((item) => rows.push(['expense', item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), '', '', '', '', '', '', '', '', item.memo || '', item.createdAt, item.updatedAt, '']));
-    state.goals.forEach((item) => rows.push(['goal', item.id, '', '', '', '', '', '', item.title, item.targetAmount, item.manualAmount || 0, item.dueDate || '', item.type, '', '', '', item.memo || '', item.createdAt, item.updatedAt, '']));
-    state.savings.forEach((item) => rows.push(['saving', item.id, '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', item.type, item.balance, getGoal(item.goalId)?.title || '', item.goalId || '', item.memo || '', item.createdAt, item.updatedAt, '']));
-    state.categories.forEach((item) => rows.push(['category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
-    state.stores.forEach((item) => rows.push(['store', item.id, '', '', '', '', item.name, '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
-    state.pretendSavings.forEach((item) => rows.push(['pretend_saving', item.id, item.date, item.amount, item.categoryName || '', '', '', '', item.title, '', '', '', 'pretend_saving', '', '', '', item.memo || '', item.createdAt, item.updatedAt, item.destinationName || '']));
-    state.pretendCategories.forEach((item) => rows.push(['pretend_category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
-    state.destinations.forEach((item) => rows.push(['destination', item.id, '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
+    state.expenses.forEach((item) => rows.push(['expense', item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), item.budgetName || '', item.budgetId || '', item.isAllowanceExpense ? 'true' : 'false', item.receiptGroupId || '', item.receiptTotal || '', '', '', '', '', '', '', '', '', '', '', item.memo || '', item.createdAt, item.updatedAt]));
+    state.goals.forEach((item) => rows.push(['goal', item.id, '', '', '', '', '', '', '', '', '', '', '', item.title, item.targetAmount, item.manualAmount || 0, item.dueDate || '', item.type, '', '', '', '', '', item.memo || '', item.createdAt, item.updatedAt]));
+    state.savings.forEach((item) => rows.push(['saving', item.id, '', '', '', '', '', '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', item.type, item.balance, '', '', getGoal(item.goalId)?.title || '', item.goalId || '', item.memo || '', item.createdAt, item.updatedAt]));
+    state.categories.forEach((item) => rows.push(['category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt]));
+    state.stores.forEach((item) => rows.push(['store', item.id, '', '', '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt]));
+    state.budgets.forEach((item) => rows.push(['budget', item.id, '', '', '', '', '', '', item.name, item.id, '', '', '', item.name, '', '', '', '', '', item.monthlyLimit, item.enabled ? 'true' : 'false', '', '', '', item.createdAt, item.updatedAt]));
     return rows;
   }
 
-  function expensesToRows(items) { return [['id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'memo', 'created_at', 'updated_at'], ...items.map((item) => [item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), item.memo, item.createdAt, item.updatedAt])]; }
+  function expensesToRows(items) { return [['id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'budget_name', 'budget_id', 'is_allowance_expense', 'receipt_group_id', 'receipt_total', 'memo', 'created_at', 'updated_at'], ...items.map((item) => [item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), item.budgetName || '', item.budgetId || '', item.isAllowanceExpense ? 'true' : 'false', item.receiptGroupId || '', item.receiptTotal || '', item.memo, item.createdAt, item.updatedAt])]; }
 
   function resetAllData() {
     if (!confirm('全データを初期化しますか？\nCSVを書き出していないデータは戻せません。')) return;
     localStorage.removeItem(STORAGE_KEY); state = createFallbackState(); const today = new Date(); const thisMonth = monthKey(today);
-    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetCategoryForm(); resetStoreForm(); resetPretendForm(); resetPretendCategoryForm(); resetDestinationForm(); els.pretendMonthFilter.value = ''; setComparePreset('month'); renderAll(); showToast('初期化しました。');
+    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.budgetMonthInput.value = thisMonth; els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetCategoryForm(); resetStoreForm(); resetBudgetForm(); setComparePreset('month'); renderAll(); showToast('初期化しました。');
   }
 
-  function normalizeExpense(item, categories, stores) {
+  function normalizeExpense(item, categories, stores, budgets) {
     const date = String(item.date || item['日付'] || '').slice(0, 10); const amount = parseAmount(item.amount ?? item['金額']); if (!date || !Number.isFinite(amount) || amount <= 0) return null;
     const categoryName = String(item.category || item.categoryName || item.category_name || item['カテゴリ'] || 'その他').trim() || 'その他'; const category = findOrCreateNamedInList(categories, categoryName, 'cat');
     const storeName = String(item.store || item.storeName || item.store_name || item.shop || item.shop_name || item['お店'] || item['店舗'] || item['支払先'] || guessStoreFromMemo(item.memo || item['メモ']) || 'その他').trim() || 'その他'; const store = findOrCreateNamedInList(stores, storeName, 'store');
     const guessedMethod = guessMethodFromOldItem(item); let method = item.paymentMethod || item.payment_method || item['支払方法'] || item.method || '';
     if (guessedMethod === 'カード' || guessedMethod === '口座引き落とし') method = guessedMethod; if (!method) method = guessedMethod;
-    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
+    const budgetNameRaw = String(item.budgetName || item.budget_name || item.budget || item['予算枠'] || '').trim();
+    const budgetIdRaw = String(item.budgetId || item.budget_id || '').trim();
+    const budget = (budgets || []).find((entry) => entry.id === budgetIdRaw || entry.name === budgetNameRaw);
+    const allowanceRaw = item.isAllowanceExpense ?? item.is_allowance_expense ?? item['お小遣いから支出'] ?? false;
+    const isAllowanceExpense = allowanceRaw === true || String(allowanceRaw).toLowerCase() === 'true' || String(allowanceRaw) === '1' || String(allowanceRaw).includes('はい');
+    const receiptGroupId = String(item.receiptGroupId || item.receipt_group_id || '').trim();
+    const receiptTotal = parseAmount(item.receiptTotal ?? item.receipt_total ?? 0);
+    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), isAllowanceExpense, budgetId: budget?.id || '', budgetName: budget?.name || budgetNameRaw || '', receiptGroupId, receiptTotal: Number.isFinite(receiptTotal) && receiptTotal > 0 ? Math.round(receiptTotal) : '', memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
   }
 
   function normalizeGoal(item) { const title = String(item?.title || item?.name || item?.['タイトル'] || '').trim(); const targetAmount = parseAmount(item?.targetAmount ?? item?.target_amount ?? item?.target ?? item?.['目標金額']); if (!title || !Number.isFinite(targetAmount) || targetAmount <= 0) return null; const manualAmount = parseAmount(item?.manualAmount ?? item?.manual_amount ?? item?.currentAmount ?? item?.current_amount ?? item?.savedAmount ?? item?.['手入力済み額'] ?? 0); const type = ['experience', 'wish', 'reserve'].includes(item?.type) ? item.type : normalizeGoalType(item?.type || item?.['種類']); return { id: item.id || createId('goal'), title, targetAmount: Math.round(targetAmount), manualAmount: Number.isFinite(manualAmount) && manualAmount > 0 ? Math.round(manualAmount) : 0, dueDate: String(item.dueDate || item.due_date || item['目標時期'] || '').slice(0, 10), type, memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
   function normalizeSaving(item, goals) { const name = String(item?.name || item?.title || item?.['名称'] || '').trim(); const balance = parseAmount(item?.balance ?? item?.['残高']); if (!name || !Number.isFinite(balance) || balance < 0) return null; const typeText = String(item.type || item['種類'] || '').toLowerCase(); const type = typeText.includes('bank') || typeText.includes('銀行') ? 'bank' : 'envelope'; const targetAmount = parseAmount(item.targetAmount ?? item.target_amount ?? item['目安・上限額'] ?? 0); const goalById = goals.find((goal) => goal.id === item.goalId || goal.id === item.linked_goal_id); const goalByTitle = goals.find((goal) => goal.title === item.linked_goal_title || goal.title === item['連結する目標']); return { id: item.id || createId('save'), name, type, balance: Math.round(balance), targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0, goalId: goalById?.id || goalByTitle?.id || '', memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
-  function normalizePretend(item) {
-    const date = String(item?.date || item?.['日付'] || '').slice(0, 10);
-    const amount = parseAmount(item?.amount ?? item?.['金額']);
-    const title = String(item?.title || item?.['やめた支出名'] || item?.name || '').trim();
-    if (!date || !title || !Number.isFinite(amount) || amount <= 0) return null;
-    return {
-      id: item.id || createId('pretend'),
-      date, title, amount: Math.round(amount),
-      categoryName: String(item.categoryName || item.category || item['カテゴリ'] || '').trim(),
-      destinationName: String(item.destinationName || item.destination || item['回した先'] || '').trim(),
-      memo: String(item.memo || item['メモ'] || '').trim(),
-      createdAt: item.createdAt || item.created_at || nowIso(),
-      updatedAt: item.updatedAt || item.updated_at || nowIso()
-    };
-  }
-  function normalizeDestination(raw) {
-    const name = String(raw?.name || raw?.title || raw?.destination || raw?.['回した先'] || raw || '').trim();
-    if (!name) return null;
-    const targetAmount = parseAmount(raw?.targetAmount ?? raw?.target_amount ?? raw?.['目標金額'] ?? 0);
-    return { id: raw?.id || createId('dest'), name, targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() };
-  }
-  function mergeDestinations(primary, secondary) {
-    const byName = new Map();
-    [...primary, ...secondary].forEach((item, index) => {
-      const norm = normalizeDestination(item);
-      if (!norm?.name) return;
-      if (!byName.has(norm.name)) byName.set(norm.name, { ...norm, sortOrder: Number.isFinite(Number(norm.sortOrder)) && Number(norm.sortOrder) !== 999 ? Number(norm.sortOrder) : index });
-      else if (norm.targetAmount > 0 && !byName.get(norm.name).targetAmount) byName.get(norm.name).targetAmount = norm.targetAmount;
-    });
-    return [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ja'));
-  }
-  function pretendSignature(item) { return `${item.date}|${item.title}|${item.amount}|${item.destinationName}|${item.memo}`; }
-
   function normalizeCategory(raw) { const name = String(raw?.name || raw?.category || raw || '').trim(); if (!name) return null; return { id: raw?.id || createId('cat'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeStore(raw) { const name = String(raw?.name || raw?.store || raw?.storeName || raw?.shop || raw || '').trim(); if (!name) return null; return { id: raw?.id || createId('store'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
+  function normalizeBudget(raw) { const name = String(raw?.name || raw?.budgetName || raw?.budget_name || raw?.title || raw?.['予算名'] || '').trim(); if (!name) return null; const monthlyLimit = parseAmount(raw?.monthlyLimit ?? raw?.monthly_limit ?? raw?.limit ?? raw?.monthly_amount ?? raw?.['月予算額'] ?? 0); const enabledText = String(raw?.enabled ?? raw?.['表示'] ?? 'true').toLowerCase(); return { id: raw?.id || raw?.budgetId || raw?.budget_id || createId('budget'), name, monthlyLimit: Number.isFinite(monthlyLimit) && monthlyLimit > 0 ? Math.round(monthlyLimit) : 0, enabled: !(enabledText === 'false' || enabledText === 'off' || enabledText === '0'), sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeAchievementSeen(item) { if (typeof item === 'string') return { id: item, achievedAt: nowIso() }; if (!item?.id) return null; return { id: item.id, achievedAt: item.achievedAt || item.achieved_at || nowIso() }; }
 
   function mergeByName(primary, secondary) { const byName = new Map(); [...primary, ...secondary].forEach((item, index) => { const norm = item?.name ? item : normalizeCategory(item); if (!norm?.name) return; if (!byName.has(norm.name)) byName.set(norm.name, { ...norm, sortOrder: Number.isFinite(Number(norm.sortOrder)) ? Number(norm.sortOrder) : index }); }); return [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ja')); }
+  function mergeBudgets(primary, secondary) { const byName = new Map(); [...primary, ...secondary].forEach((item, index) => { const norm = normalizeBudget(item); if (!norm?.name) return; if (!byName.has(norm.name)) byName.set(norm.name, { ...norm, sortOrder: Number.isFinite(Number(norm.sortOrder)) ? Number(norm.sortOrder) : index }); }); return [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ja')); }
   function addCategoryIfMissing(name) { const normalized = String(name || '').trim(); let category = state.categories.find((item) => item.name === normalized); if (!category) { category = { id: createId('cat'), name: normalized, sortOrder: state.categories.length, createdAt: nowIso(), updatedAt: nowIso() }; state.categories.push(category); saveState(); } return category; }
   function addStoreIfMissing(name) { const normalized = String(name || '').trim(); let store = state.stores.find((item) => item.name === normalized); if (!store) { store = { id: createId('store'), name: normalized, sortOrder: state.stores.length, createdAt: nowIso(), updatedAt: nowIso() }; state.stores.push(store); saveState(); } return store; }
   function findOrCreateNamedInList(list, name, prefix) { let item = list.find((entry) => entry.name === name); if (!item) { item = { id: createId(prefix), name, sortOrder: list.length, createdAt: nowIso(), updatedAt: nowIso() }; list.push(item); } return item; }
   function getCategory(id) { return state.categories.find((item) => item.id === id); }
   function getStore(id) { return state.stores.find((item) => item.id === id); }
+  function getBudget(id) { return state.budgets.find((item) => item.id === id); }
+  function findBudgetByName(name) { return state.budgets.find((item) => item.name === name); }
   function getGoal(id) { return state.goals.find((item) => item.id === id); }
 
   function normalizePaymentMethod(value) { const text = String(value || '').trim(); if (paymentMethods.includes(text)) return text; if (text.includes('現金') || text.includes('財布') || text.includes('封筒')) return '現金'; if (text.includes('カード') || text.toLowerCase().includes('card') || text.includes('クレ')) return 'カード'; if (text.includes('電子') || text.includes('Pay') || text.includes('nanaco') || text.includes('Su') || text.includes('QR') || text.includes('キャッシュレス')) return '電子マネー'; if (text.includes('引') || text.includes('銀行') || text.includes('口座')) return '口座引き落とし'; return 'その他'; }
@@ -903,5 +929,5 @@
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
   function showToast(message) { els.toast.textContent = message; els.toast.classList.add('is-visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => els.toast.classList.remove('is-visible'), 2400); }
 
-  window.__kakeiboDebug = { getState: () => state, renderAll, setComparePreset, backupToRows, importBackup, rowsToCsv, parseCsv, addPretendSampleData };
+  window.__kakeiboDebug = { getState: () => state, renderAll, setComparePreset };
 })();

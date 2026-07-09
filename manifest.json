@@ -1,11 +1,11 @@
 {
   "name": "じぶん家計簿",
   "short_name": "家計簿",
-  "description": "レシート・領収書を記録し、お店別・カテゴリ別・月別・年別・生活フェーズ別に支出を比較する個人用家計簿アプリ。",
+  "description": "レシート・領収書を記録し、予算管理・レシート分割・月別/年別/生活フェーズ別比較ができる個人用家計簿アプリ。",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#e8f3ef",
-  "theme_color": "#2d7f91",
+  "background_color": "#e9fff5",
+  "theme_color": "#17a378",
   "icons": [
     {
       "src": "icon-192.png",
