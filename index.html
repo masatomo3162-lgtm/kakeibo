@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.1.1</title>
+  <title>じぶん家計簿 v2.2.0</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,7 +15,7 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.1.1</div>
+    <div class="version">v2.2.0</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -24,6 +24,7 @@
     <button class="tab" data-tab="history">履歴</button>
     <button class="tab" data-tab="goals">目標</button>
     <button class="tab" data-tab="savings">貯金</button>
+    <button class="tab" data-tab="pretend">使ったつもり貯金</button>
     <button class="tab" data-tab="achievements">実績</button>
     <button class="tab" data-tab="settings">設定</button>
   </nav>
@@ -35,9 +36,15 @@
           <h2 id="input-title">レシート・領収書を入力</h2>
           <p>何をいくら使ったかだけに集中します。チャージやカード引き落としは原則入力しません。</p>
         </div>
-        <div class="today-total">
-          <span>今月の支出</span>
-          <strong id="monthTotalTop">¥0</strong>
+        <div class="hero-totals">
+          <div class="today-total">
+            <span>今月の支出</span>
+            <strong id="monthTotalTop">¥0</strong>
+          </div>
+          <div class="today-total pretend-total">
+            <span>今月守ったお金</span>
+            <strong id="pretendMonthTotalTop">¥0</strong>
+          </div>
         </div>
       </div>
 
@@ -340,6 +347,106 @@
       </div>
     </section>
 
+    <section id="tab-pretend" class="panel" aria-labelledby="pretend-title">
+      <div class="card hero-card pretend-hero">
+        <div>
+          <h2 id="pretend-title">使ったつもり貯金</h2>
+          <p>使おうと思ったけど踏みとどまったお金を記録します。使わなかった分だけ、目標に近づいています。</p>
+        </div>
+        <div class="today-total pretend-total">
+          <span>今月守ったお金</span>
+          <strong id="pretendMonthTotal">¥0</strong>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><span>今月守ったお金</span><strong id="pretendStatMonth">¥0</strong></div>
+        <div class="stat-card"><span>今年守ったお金</span><strong id="pretendStatYear">¥0</strong></div>
+        <div class="stat-card"><span>累計で守ったお金</span><strong id="pretendStatTotal">¥0</strong></div>
+        <div class="stat-card"><span>このペースなら年間</span><strong id="pretendStatPace">¥0</strong></div>
+      </div>
+
+      <div id="pretendMessages" class="card pretend-message-card"></div>
+
+      <form id="pretendForm" class="card form-card" autocomplete="off">
+        <input type="hidden" id="pretendEditId" value="">
+        <div class="grid two">
+          <label>
+            <span>日付</span>
+            <input type="date" id="pretendDateInput" required>
+          </label>
+          <label>
+            <span>金額</span>
+            <input type="number" id="pretendAmountInput" inputmode="numeric" min="1" step="1" placeholder="例：150" required>
+          </label>
+        </div>
+        <div class="grid two">
+          <label>
+            <span>やめた支出名</span>
+            <input id="pretendTitleInput" list="pretendTitleSuggestions" placeholder="例：ホワサバ課金 / コンビニお菓子" required>
+            <datalist id="pretendTitleSuggestions"></datalist>
+          </label>
+          <label>
+            <span>カテゴリ（任意）</span>
+            <select id="pretendCategoryInput"></select>
+          </label>
+        </div>
+        <div class="grid two">
+          <label>
+            <span>回した先（任意）</span>
+            <select id="pretendDestinationInput"></select>
+          </label>
+          <label>
+            <span>メモ（任意）</span>
+            <input id="pretendMemoInput" placeholder="例：150円だけど積み重ねる">
+          </label>
+        </div>
+        <div class="note-box">
+          <strong>今日の踏みとどまり</strong>
+          <span>ゲーム課金・コンビニ・外食・タバコを吸ったつもり。少額でも記録すれば未来に回ったお金になります。</span>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="primary" id="pretendSaveButton">保存</button>
+          <button type="button" class="ghost" id="pretendClearButton">クリア</button>
+        </div>
+      </form>
+
+      <div class="grid two summary-grid">
+        <div class="card wide-card">
+          <h3>月別「守ったお金」推移</h3>
+          <div id="pretendMonthChart" class="bar-chart"></div>
+        </div>
+        <div class="card">
+          <h3>回した先別</h3>
+          <div id="pretendDestinationChart" class="bar-chart"></div>
+        </div>
+        <div class="card">
+          <h3>カテゴリ別</h3>
+          <div id="pretendCategoryChart" class="bar-chart"></div>
+        </div>
+        <div class="card">
+          <h3>よく踏みとどまった支出</h3>
+          <div id="pretendRanking" class="ranking-list"></div>
+        </div>
+        <div class="card">
+          <h3>回した先の進捗</h3>
+          <p class="hint">目標金額は設定画面の「回した先の編集」で設定できます。</p>
+          <div id="pretendDestinationProgress" class="goal-list"></div>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-head">
+          <div>
+            <strong id="pretendListTotal">¥0</strong>
+            <span id="pretendListCount">0件</span>
+          </div>
+          <label class="month-picker"><span>対象月</span><input type="month" id="pretendMonthFilter"></label>
+        </div>
+        <div id="pretendList" class="transaction-list"></div>
+      </div>
+    </section>
+
     <section id="tab-achievements" class="panel" aria-labelledby="achievements-title">
       <div class="card section-title-card achievement-hero">
         <div>
@@ -377,7 +484,7 @@
       <div class="grid two settings-grid">
         <div class="card">
           <h3>CSVバックアップ</h3>
-          <p class="hint">支出・目標・貯金・カテゴリ・お店を1つのCSVにまとめて保存します。</p>
+          <p class="hint">支出・目標・貯金・カテゴリ・お店・使ったつもり貯金を1つのCSVにまとめて保存します。</p>
           <div class="button-stack">
             <button type="button" class="ghost" id="exportBackupCsvButton">一括CSVを書き出し</button>
             <label class="file-button">一括CSVを読み込み<input type="file" id="importBackupCsvInput" accept=".csv,text/csv"></label>
@@ -405,6 +512,37 @@
         </div>
 
         <div class="card">
+          <h3>使ったつもり貯金カテゴリ</h3>
+          <form id="pretendCategoryForm" class="stack-form">
+            <input type="hidden" id="pretendCategoryIdInput">
+            <label><span>カテゴリ名</span><input id="pretendCategoryNameInput" placeholder="例：ゲーム課金 / コンビニ / タバコ"></label>
+            <div class="form-actions"><button type="submit" class="primary" id="pretendCategorySaveButton">カテゴリを保存</button><button type="button" class="ghost" id="pretendCategoryClearButton">クリア</button></div>
+          </form>
+          <div id="pretendCategoryList" class="chip-list"></div>
+        </div>
+
+        <div class="card">
+          <h3>回した先の編集</h3>
+          <p class="hint">目標金額を設定すると、使ったつもり貯金タブに進捗が表示されます。</p>
+          <form id="destinationForm" class="stack-form">
+            <input type="hidden" id="destinationIdInput">
+            <label><span>回した先の名前</span><input id="destinationNameInput" placeholder="例：車検代 / リフォーム資金 / NISA"></label>
+            <label><span>目標金額（0で目標なし）</span><input type="number" id="destinationTargetInput" min="0" step="1" value="0"></label>
+            <div class="form-actions"><button type="submit" class="primary" id="destinationSaveButton">回した先を保存</button><button type="button" class="ghost" id="destinationClearButton">クリア</button></div>
+          </form>
+          <div id="destinationList" class="chip-list"></div>
+        </div>
+
+        <div class="card">
+          <h3>使ったつもり貯金データ操作</h3>
+          <p class="hint">記録の全削除はカテゴリ・回した先の設定は残し、記録だけを消します。</p>
+          <div class="button-stack">
+            <button type="button" class="ghost" id="pretendSampleButton">サンプルデータ追加</button>
+            <button type="button" class="danger" id="pretendDeleteAllButton">使ったつもり貯金を全削除</button>
+          </div>
+        </div>
+
+        <div class="card">
           <h3>データ操作</h3>
           <p class="hint">初期化前に必ずCSVを書き出してください。</p>
           <button type="button" class="danger" id="resetAllButton">全データ初期化</button>
@@ -413,6 +551,7 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.2.0</strong><p>「使ったつもり貯金」タブを追加。使わなかった支出の記録、今月・今年・累計・年間ペースの表示、回した先別・カテゴリ別集計、月別推移グラフ、回した先ごとの目標金額と進捗表示を実装。CSVバックアップ・復元に使ったつもり貯金を追加。設定画面にカテゴリ・回した先・目標金額編集とサンプルデータ追加を実装。既存データを保持したままアップデート。</p></article>
             <article><strong>v2.1.1</strong><p>アプリアイコンを刷新。軽微な調整。</p></article>
             <article><strong>v2.1.0</strong><p>支出入力に「お店・支払先」を追加。お店別集計・比較・履歴フィルター・設定編集を実装。生活人数を削除し、生活フェーズを旧生活／新生活に整理。一括CSVバックアップに変更。アイコンを添付テイストで再作成。</p></article>
             <article><strong>v2.0.0</strong><p>総資産連携・カード精算・楽天銀行CSVを廃止。純粋な支出記録、左右比較、生活フェーズ比較、目的別貯金、目標連結、実績を再設計。</p></article>

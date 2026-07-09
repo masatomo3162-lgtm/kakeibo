@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.1.1';
+  const APP_VERSION = '2.2.0';
   const STORAGE_KEY = 'jun_kakeibo_expense_v210';
   const OLD_STORAGE_KEYS = [
     'jun_kakeibo_expense_v200',
@@ -23,6 +23,14 @@
   const defaultStoreNames = [
     'トライアル', 'セブンイレブン', 'ローソン', 'セイコーマート', 'イオン', 'ツルハ',
     '楽天市場', 'Amazon', 'ガソリンスタンド', '病院・薬局', '公共料金', 'その他'
+  ];
+
+  const defaultPretendCategoryNames = [
+    'ゲーム課金', 'コンビニ', '外食', 'お菓子・飲み物', 'ネット通販', 'サブスク', '趣味', 'タバコ', 'その他'
+  ];
+
+  const defaultDestinationNames = [
+    'リフォーム資金', '太陽光・パワコン資金', 'NISA', '学資', '家族旅行', '車検代', '予備費', 'ウイスキー資金', 'その他'
   ];
 
   const achievementDefinitions = [
@@ -71,7 +79,16 @@
     exportBackupCsvButton: $('#exportBackupCsvButton'), importBackupCsvInput: $('#importBackupCsvInput'),
     categoryForm: $('#categoryForm'), categoryIdInput: $('#categoryIdInput'), categoryNameInput: $('#categoryNameInput'), categorySaveButton: $('#categorySaveButton'), categoryClearButton: $('#categoryClearButton'), categoryList: $('#categoryList'),
     storeForm: $('#storeForm'), storeIdInput: $('#storeIdInput'), storeNameInput: $('#storeNameInput'), storeSaveButton: $('#storeSaveButton'), storeClearButton: $('#storeClearButton'), storeList: $('#storeList'),
-    resetAllButton: $('#resetAllButton')
+    resetAllButton: $('#resetAllButton'),
+    pretendMonthTotalTop: $('#pretendMonthTotalTop'), pretendMonthTotal: $('#pretendMonthTotal'),
+    pretendStatMonth: $('#pretendStatMonth'), pretendStatYear: $('#pretendStatYear'), pretendStatTotal: $('#pretendStatTotal'), pretendStatPace: $('#pretendStatPace'),
+    pretendMessages: $('#pretendMessages'),
+    pretendForm: $('#pretendForm'), pretendEditId: $('#pretendEditId'), pretendDateInput: $('#pretendDateInput'), pretendAmountInput: $('#pretendAmountInput'), pretendTitleInput: $('#pretendTitleInput'), pretendTitleSuggestions: $('#pretendTitleSuggestions'), pretendCategoryInput: $('#pretendCategoryInput'), pretendDestinationInput: $('#pretendDestinationInput'), pretendMemoInput: $('#pretendMemoInput'), pretendSaveButton: $('#pretendSaveButton'), pretendClearButton: $('#pretendClearButton'),
+    pretendMonthChart: $('#pretendMonthChart'), pretendDestinationChart: $('#pretendDestinationChart'), pretendCategoryChart: $('#pretendCategoryChart'), pretendRanking: $('#pretendRanking'), pretendDestinationProgress: $('#pretendDestinationProgress'),
+    pretendMonthFilter: $('#pretendMonthFilter'), pretendListTotal: $('#pretendListTotal'), pretendListCount: $('#pretendListCount'), pretendList: $('#pretendList'),
+    pretendCategoryForm: $('#pretendCategoryForm'), pretendCategoryIdInput: $('#pretendCategoryIdInput'), pretendCategoryNameInput: $('#pretendCategoryNameInput'), pretendCategorySaveButton: $('#pretendCategorySaveButton'), pretendCategoryClearButton: $('#pretendCategoryClearButton'), pretendCategoryList: $('#pretendCategoryList'),
+    destinationForm: $('#destinationForm'), destinationIdInput: $('#destinationIdInput'), destinationNameInput: $('#destinationNameInput'), destinationTargetInput: $('#destinationTargetInput'), destinationSaveButton: $('#destinationSaveButton'), destinationClearButton: $('#destinationClearButton'), destinationList: $('#destinationList'),
+    pretendSampleButton: $('#pretendSampleButton'), pretendDeleteAllButton: $('#pretendDeleteAllButton')
   };
 
   init();
@@ -83,6 +100,8 @@
     els.dateInput.value = dateKey(today);
     els.historyMonthInput.value = thisMonth;
     els.achievementMonthInput.value = thisMonth;
+    els.pretendDateInput.value = dateKey(today);
+    els.pretendMonthFilter.value = '';
     setComparePreset('month');
     bindEvents();
     registerServiceWorker();
@@ -116,6 +135,16 @@
     els.exportBackupCsvButton.addEventListener('click', () => downloadCsv('一括バックアップ', backupToRows(), `kakeibo-backup_${stamp()}.csv`));
     els.importBackupCsvInput.addEventListener('change', (e) => importCsvFile(e, importBackup));
 
+    els.pretendForm.addEventListener('submit', handlePretendSubmit);
+    els.pretendClearButton.addEventListener('click', () => resetPretendForm());
+    els.pretendMonthFilter.addEventListener('change', renderPretendList);
+    els.pretendCategoryForm.addEventListener('submit', handlePretendCategorySubmit);
+    els.pretendCategoryClearButton.addEventListener('click', resetPretendCategoryForm);
+    els.destinationForm.addEventListener('submit', handleDestinationSubmit);
+    els.destinationClearButton.addEventListener('click', resetDestinationForm);
+    els.pretendSampleButton.addEventListener('click', addPretendSampleData);
+    els.pretendDeleteAllButton.addEventListener('click', deleteAllPretendData);
+
     els.categoryForm.addEventListener('submit', handleCategorySubmit);
     els.categoryClearButton.addEventListener('click', resetCategoryForm);
     els.storeForm.addEventListener('submit', handleStoreSubmit);
@@ -140,7 +169,10 @@
       version: APP_VERSION,
       categories: defaultCategoryNames.map((name, index) => ({ id: createId('cat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
       stores: defaultStoreNames.map((name, index) => ({ id: createId('store'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
-      expenses: [], goals: [], savings: [], achievementsSeen: []
+      expenses: [], goals: [], savings: [], achievementsSeen: [],
+      pretendSavings: [],
+      pretendCategories: defaultPretendCategoryNames.map((name, index) => ({ id: createId('pcat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
+      destinations: defaultDestinationNames.map((name, index) => ({ id: createId('dest'), name, targetAmount: 0, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() }))
     };
   }
 
@@ -165,7 +197,14 @@
     const goals = Array.isArray(raw?.goals) ? raw.goals.map(normalizeGoal).filter(Boolean) : [];
     const savings = Array.isArray(raw?.savings) ? raw.savings.map((item) => normalizeSaving(item, goals)).filter(Boolean) : [];
     const expenses = Array.isArray(raw?.expenses) ? raw.expenses.map((item) => normalizeExpense(item, finalCategories, finalStores)).filter(Boolean) : [];
-    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, expenses, goals, savings, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [] };
+    const pretendCategories = mergeByName(Array.isArray(raw?.pretendCategories) ? raw.pretendCategories.map(normalizeCategory).filter(Boolean) : [], fallback.pretendCategories);
+    const destinations = mergeDestinations(Array.isArray(raw?.destinations) ? raw.destinations.map(normalizeDestination).filter(Boolean) : [], fallback.destinations);
+    const pretendSavings = Array.isArray(raw?.pretendSavings) ? raw.pretendSavings.map(normalizePretend).filter(Boolean) : [];
+    pretendSavings.forEach((item) => {
+      if (item.categoryName) findOrCreateNamedInList(pretendCategories, item.categoryName, 'pcat');
+      if (item.destinationName && !destinations.some((dest) => dest.name === item.destinationName)) destinations.push({ id: createId('dest'), name: item.destinationName, targetAmount: 0, sortOrder: destinations.length, createdAt: nowIso(), updatedAt: nowIso() });
+    });
+    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, expenses, goals, savings, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [], pretendSavings, pretendCategories, destinations };
   }
 
   function ensureState() { state = normalizeState(state); saveState(); }
@@ -181,7 +220,9 @@
   function renderAll() {
     renderCategorySelects(); renderStoreSelects(); renderTopTotal(); renderCompareControls(); renderCompare();
     renderHistoryFilters(); renderHistory(); renderGoalSelects(); renderGoals(); renderSavings();
-    renderCategories(); renderStores(); renderAchievements(); saveState();
+    renderCategories(); renderStores(); renderAchievements();
+    renderPretendSelects(); renderPretendStats(); renderPretendCharts(); renderPretendList(); renderPretendCategories(); renderDestinations();
+    saveState();
   }
 
   function handleExpenseSubmit(event) {
@@ -268,8 +309,11 @@
   function renderStoreSelects() { els.storeInput.innerHTML = state.stores.map((store) => `<option value="${escapeHtml(store.id)}">${escapeHtml(store.name)}</option>`).join(''); }
 
   function renderTopTotal() {
-    const total = sum(filterByMonth(state.expenses, monthKey(new Date())).map((item) => item.amount));
+    const thisMonth = monthKey(new Date());
+    const total = sum(filterByMonth(state.expenses, thisMonth).map((item) => item.amount));
     els.monthTotalTop.textContent = formatYen(total);
+    const pretendTotal = sum(filterByMonth(state.pretendSavings, thisMonth).map((item) => item.amount));
+    els.pretendMonthTotalTop.textContent = formatYen(pretendTotal);
   }
 
   function setComparePreset(type) {
@@ -432,6 +476,249 @@
 
   function getGoalProgress(goalId) { const goal = state.goals.find((item) => item.id === goalId); const linkedSavings = state.savings.filter((item) => item.goalId === goalId); const linkedAmount = sum(linkedSavings.map((item) => item.balance)); return { currentAmount: (goal?.manualAmount || 0) + linkedAmount, linkedSavings, linkedAmount }; }
 
+  function handlePretendSubmit(event) {
+    event.preventDefault();
+    const amount = Number(els.pretendAmountInput.value);
+    if (!Number.isFinite(amount) || amount <= 0) return showToast('金額を入力してください。');
+    const title = els.pretendTitleInput.value.trim();
+    if (!title) return showToast('やめた支出名を入力してください。');
+    if (!els.pretendDateInput.value) return showToast('日付を入力してください。');
+    const payload = {
+      date: els.pretendDateInput.value,
+      title,
+      amount: Math.round(amount),
+      categoryName: els.pretendCategoryInput.value || '',
+      destinationName: els.pretendDestinationInput.value || '',
+      memo: els.pretendMemoInput.value.trim(),
+      updatedAt: nowIso()
+    };
+    const editId = els.pretendEditId.value;
+    if (editId) {
+      const existing = state.pretendSavings.find((item) => item.id === editId);
+      if (!existing) return showToast('編集対象が見つかりません。');
+      Object.assign(existing, payload);
+      showToast('使ったつもり貯金を更新しました。');
+    } else {
+      state.pretendSavings.push({ id: createId('pretend'), ...payload, createdAt: nowIso() });
+      showToast(`${formatYen(payload.amount)}を未来に回しました。`);
+    }
+    resetPretendForm({ keepDate: true, keepCategory: true, keepDestination: true });
+    renderAll();
+  }
+
+  function resetPretendForm(options = {}) {
+    const keepDate = els.pretendDateInput.value;
+    const keepCategory = els.pretendCategoryInput.value;
+    const keepDestination = els.pretendDestinationInput.value;
+    els.pretendForm.reset();
+    els.pretendEditId.value = '';
+    els.pretendSaveButton.textContent = '保存';
+    els.pretendDateInput.value = options.keepDate && keepDate ? keepDate : dateKey(new Date());
+    if (options.keepCategory) els.pretendCategoryInput.value = keepCategory;
+    if (options.keepDestination) els.pretendDestinationInput.value = keepDestination;
+  }
+
+  function editPretend(id) {
+    const item = state.pretendSavings.find((entry) => entry.id === id);
+    if (!item) return;
+    els.pretendEditId.value = item.id; els.pretendDateInput.value = item.date; els.pretendTitleInput.value = item.title; els.pretendAmountInput.value = item.amount;
+    els.pretendCategoryInput.value = item.categoryName || ''; els.pretendDestinationInput.value = item.destinationName || ''; els.pretendMemoInput.value = item.memo || '';
+    els.pretendSaveButton.textContent = '更新';
+    switchTab('pretend'); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function deletePretend(id) {
+    if (!confirm('この使ったつもり貯金を削除しますか？')) return;
+    state.pretendSavings = state.pretendSavings.filter((item) => item.id !== id);
+    renderAll(); showToast('削除しました。');
+  }
+
+  function renderPretendSelects() {
+    els.pretendCategoryInput.innerHTML = '<option value="">未分類</option>' + state.pretendCategories.map((cat) => `<option value="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</option>`).join('');
+    els.pretendDestinationInput.innerHTML = '<option value="">未定</option>' + state.destinations.map((dest) => `<option value="${escapeHtml(dest.name)}">${escapeHtml(dest.name)}</option>`).join('');
+    const titles = unique(state.pretendSavings.map((item) => item.title));
+    els.pretendTitleSuggestions.innerHTML = titles.map((title) => `<option value="${escapeHtml(title)}"></option>`).join('');
+  }
+
+  function renderPretendStats() {
+    const today = new Date();
+    const thisMonth = monthKey(today);
+    const thisYear = String(today.getFullYear());
+    const monthTotal = sum(filterByMonth(state.pretendSavings, thisMonth).map((item) => item.amount));
+    const yearItems = state.pretendSavings.filter((item) => item.date.startsWith(`${thisYear}-`));
+    const yearTotal = sum(yearItems.map((item) => item.amount));
+    const grandTotal = sum(state.pretendSavings.map((item) => item.amount));
+    const dayOfYear = Math.max(1, Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000));
+    const pace = yearTotal > 0 ? Math.round(yearTotal / dayOfYear * 365) : 0;
+    els.pretendMonthTotal.textContent = formatYen(monthTotal);
+    els.pretendStatMonth.textContent = formatYen(monthTotal);
+    els.pretendStatYear.textContent = formatYen(yearTotal);
+    els.pretendStatTotal.textContent = formatYen(grandTotal);
+    els.pretendStatPace.textContent = pace ? `約${formatYen(pace)}` : '¥0';
+    renderPretendMessages({ monthTotal, yearTotal, grandTotal, pace });
+  }
+
+  function renderPretendMessages({ monthTotal, grandTotal, pace }) {
+    const lines = [];
+    if (monthTotal > 0) lines.push(`今月、${formatYen(monthTotal)}を未来に回しました。`);
+    if (pace > 0) lines.push(`このペースなら、年間 約${formatYen(pace)} を守れます。`);
+    const destTotals = groupPretendSum('destinationName');
+    state.destinations.filter((dest) => dest.targetAmount > 0).slice(0, 3).forEach((dest) => {
+      const current = destTotals[dest.name] || 0;
+      if (current >= dest.targetAmount) lines.push(`「${dest.name}」の目標を達成しました！`);
+      else if (current > 0) lines.push(`「${dest.name}」まであと${formatYen(dest.targetAmount - current)}。`);
+    });
+    if (grandTotal > 0 && lines.length < 4) lines.push(`累計 ${formatYen(grandTotal)} が未来に回っています。`);
+    els.pretendMessages.innerHTML = lines.length
+      ? lines.map((line) => `<p class="pretend-message">🌱 ${escapeHtml(line)}</p>`).join('')
+      : '<p class="hint">今日の踏みとどまりを1件記録すると、ここに成果が表示されます。</p>';
+  }
+
+  function groupPretendSum(key) {
+    return state.pretendSavings.reduce((map, item) => {
+      const label = item[key] || (key === 'destinationName' ? '未定' : '未分類');
+      map[label] = (map[label] || 0) + Number(item.amount || 0);
+      return map;
+    }, {});
+  }
+
+  function renderPretendCharts() {
+    const byMonth = state.pretendSavings.reduce((map, item) => { const key = monthKey(item.date); map[key] = (map[key] || 0) + item.amount; return map; }, {});
+    const months = Object.keys(byMonth).sort().slice(-12);
+    renderBarChart(els.pretendMonthChart, months.map((month) => [formatMonthLabel(month), byMonth[month]]), 'まだ記録がありません。');
+    const destEntries = Object.entries(groupPretendSum('destinationName')).sort((a, b) => b[1] - a[1]);
+    renderBarChart(els.pretendDestinationChart, destEntries, '回した先の記録がありません。');
+    const catEntries = Object.entries(groupPretendSum('categoryName')).sort((a, b) => b[1] - a[1]);
+    renderBarChart(els.pretendCategoryChart, catEntries, 'カテゴリの記録がありません。');
+    renderPretendRanking();
+    renderDestinationProgress();
+  }
+
+  function renderBarChart(target, entries, emptyText) {
+    if (!entries.length) { target.innerHTML = `<p class="hint">${escapeHtml(emptyText)}</p>`; return; }
+    const max = Math.max(...entries.map(([, value]) => value), 1);
+    target.innerHTML = entries.map(([label, value]) => {
+      const percent = Math.max(2, Math.round(value / max * 100));
+      return `<div class="bar-row"><span class="bar-label">${escapeHtml(label)}</span><div class="bar-track"><span class="bar-fill" style="width:${percent}%"></span></div><span class="bar-value">${formatYen(value)}</span></div>`;
+    }).join('');
+  }
+
+  function renderPretendRanking() {
+    const byTitle = state.pretendSavings.reduce((map, item) => { const entry = map[item.title] || { count: 0, total: 0 }; entry.count += 1; entry.total += item.amount; map[item.title] = entry; return map; }, {});
+    const ranked = Object.entries(byTitle).sort((a, b) => b[1].count - a[1].count || b[1].total - a[1].total).slice(0, 10);
+    els.pretendRanking.innerHTML = ranked.length
+      ? ranked.map(([title, info], index) => `<div class="ranking-item"><span class="ranking-rank">${index + 1}位</span><strong>${escapeHtml(title)}</strong><span class="meta">${info.count}回 / ${formatYen(info.total)}</span></div>`).join('')
+      : '<p class="hint">まだ記録がありません。</p>';
+  }
+
+  function renderDestinationProgress() {
+    const destTotals = groupPretendSum('destinationName');
+    const withTarget = state.destinations.filter((dest) => dest.targetAmount > 0);
+    els.pretendDestinationProgress.innerHTML = withTarget.length
+      ? withTarget.map((dest) => {
+        const current = destTotals[dest.name] || 0;
+        const percent = Math.min(100, Math.round(current / dest.targetAmount * 100));
+        return `<article class="goal-item"><div class="item-main"><strong>${escapeHtml(dest.name)}</strong><div class="meta">${formatYen(current)} / ${formatYen(dest.targetAmount)}　${percent}%達成</div><div class="progress"><span style="width:${percent}%"></span></div></div></article>`;
+      }).join('')
+      : '<p class="hint">目標金額が設定された回した先はありません。</p>';
+  }
+
+  function renderPretendList() {
+    const month = els.pretendMonthFilter.value;
+    const list = state.pretendSavings
+      .filter((item) => !month || monthKey(item.date) === month)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    els.pretendListTotal.textContent = formatYen(sum(list.map((item) => item.amount)));
+    els.pretendListCount.textContent = `${list.length}件`;
+    els.pretendList.innerHTML = list.length
+      ? list.map((item) => `<article class="transaction-item"><div class="item-main"><strong>${escapeHtml(item.title)} ${formatYen(item.amount)}</strong><div class="meta">${escapeHtml(item.date)} / ${escapeHtml(item.categoryName || '未分類')} / 回した先：${escapeHtml(item.destinationName || '未定')}${item.memo ? ` / ${escapeHtml(item.memo)}` : ''}</div></div><div class="item-actions"><button type="button" class="icon-button" data-edit-pretend="${escapeHtml(item.id)}">編集</button><button type="button" class="icon-button" data-delete-pretend="${escapeHtml(item.id)}">削除</button></div></article>`).join('')
+      : '<p class="hint">この条件の記録はありません。</p>';
+    $$('[data-edit-pretend]').forEach((button) => button.addEventListener('click', () => editPretend(button.dataset.editPretend)));
+    $$('[data-delete-pretend]').forEach((button) => button.addEventListener('click', () => deletePretend(button.dataset.deletePretend)));
+  }
+
+  function handlePretendCategorySubmit(event) {
+    event.preventDefault();
+    const name = els.pretendCategoryNameInput.value.trim();
+    if (!name) return showToast('カテゴリ名を入力してください。');
+    const id = els.pretendCategoryIdInput.value;
+    if (id) {
+      const category = state.pretendCategories.find((item) => item.id === id);
+      if (!category) return showToast('編集対象が見つかりません。');
+      if (state.pretendCategories.some((item) => item.name === name && item.id !== id)) return showToast('同じカテゴリ名があります。');
+      const oldName = category.name;
+      category.name = name; category.updatedAt = nowIso();
+      state.pretendSavings.forEach((item) => { if (item.categoryName === oldName) item.categoryName = name; });
+      showToast('カテゴリを更新しました。');
+    } else {
+      if (state.pretendCategories.some((item) => item.name === name)) return showToast('同じカテゴリ名があります。');
+      state.pretendCategories.push({ id: createId('pcat'), name, sortOrder: state.pretendCategories.length, createdAt: nowIso(), updatedAt: nowIso() });
+      showToast('カテゴリを追加しました。');
+    }
+    resetPretendCategoryForm(); renderAll();
+  }
+
+  function renderPretendCategories() {
+    els.pretendCategoryList.innerHTML = state.pretendCategories.map((cat) => `<div class="category-chip"><strong>${escapeHtml(cat.name)}</strong><div class="item-actions"><button type="button" class="icon-button" data-edit-pcat="${escapeHtml(cat.id)}">編集</button><button type="button" class="icon-button" data-delete-pcat="${escapeHtml(cat.id)}">削除</button></div></div>`).join('');
+    $$('[data-edit-pcat]').forEach((button) => button.addEventListener('click', () => editPretendCategory(button.dataset.editPcat)));
+    $$('[data-delete-pcat]').forEach((button) => button.addEventListener('click', () => deletePretendCategory(button.dataset.deletePcat)));
+  }
+
+  function editPretendCategory(id) { const category = state.pretendCategories.find((item) => item.id === id); if (!category) return; els.pretendCategoryIdInput.value = category.id; els.pretendCategoryNameInput.value = category.name; els.pretendCategorySaveButton.textContent = 'カテゴリを更新'; }
+  function deletePretendCategory(id) { const category = state.pretendCategories.find((item) => item.id === id); if (!category) return; if (state.pretendSavings.some((item) => item.categoryName === category.name)) return showToast('使用中のカテゴリは削除できません。先に記録を編集してください。'); if (!confirm(`カテゴリ「${category.name}」を削除しますか？`)) return; state.pretendCategories = state.pretendCategories.filter((item) => item.id !== id); renderAll(); showToast('カテゴリを削除しました。'); }
+  function resetPretendCategoryForm() { els.pretendCategoryForm.reset(); els.pretendCategoryIdInput.value = ''; els.pretendCategorySaveButton.textContent = 'カテゴリを保存'; }
+
+  function handleDestinationSubmit(event) {
+    event.preventDefault();
+    const name = els.destinationNameInput.value.trim();
+    if (!name) return showToast('回した先の名前を入力してください。');
+    const targetAmount = Number(els.destinationTargetInput.value || 0);
+    const target = Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0;
+    const id = els.destinationIdInput.value;
+    if (id) {
+      const destination = state.destinations.find((item) => item.id === id);
+      if (!destination) return showToast('編集対象が見つかりません。');
+      if (state.destinations.some((item) => item.name === name && item.id !== id)) return showToast('同じ回した先があります。');
+      const oldName = destination.name;
+      destination.name = name; destination.targetAmount = target; destination.updatedAt = nowIso();
+      state.pretendSavings.forEach((item) => { if (item.destinationName === oldName) item.destinationName = name; });
+      showToast('回した先を更新しました。');
+    } else {
+      if (state.destinations.some((item) => item.name === name)) return showToast('同じ回した先があります。');
+      state.destinations.push({ id: createId('dest'), name, targetAmount: target, sortOrder: state.destinations.length, createdAt: nowIso(), updatedAt: nowIso() });
+      showToast('回した先を追加しました。');
+    }
+    resetDestinationForm(); renderAll();
+  }
+
+  function renderDestinations() {
+    els.destinationList.innerHTML = state.destinations.map((dest) => `<div class="category-chip"><strong>${escapeHtml(dest.name)}</strong><span class="meta">${dest.targetAmount > 0 ? `目標 ${formatYen(dest.targetAmount)}` : '目標なし'}</span><div class="item-actions"><button type="button" class="icon-button" data-edit-dest="${escapeHtml(dest.id)}">編集</button><button type="button" class="icon-button" data-delete-dest="${escapeHtml(dest.id)}">削除</button></div></div>`).join('');
+    $$('[data-edit-dest]').forEach((button) => button.addEventListener('click', () => editDestination(button.dataset.editDest)));
+    $$('[data-delete-dest]').forEach((button) => button.addEventListener('click', () => deleteDestination(button.dataset.deleteDest)));
+  }
+
+  function editDestination(id) { const destination = state.destinations.find((item) => item.id === id); if (!destination) return; els.destinationIdInput.value = destination.id; els.destinationNameInput.value = destination.name; els.destinationTargetInput.value = destination.targetAmount || 0; els.destinationSaveButton.textContent = '回した先を更新'; }
+  function deleteDestination(id) { const destination = state.destinations.find((item) => item.id === id); if (!destination) return; if (state.pretendSavings.some((item) => item.destinationName === destination.name)) return showToast('使用中の回した先は削除できません。先に記録を編集してください。'); if (!confirm(`回した先「${destination.name}」を削除しますか？`)) return; state.destinations = state.destinations.filter((item) => item.id !== id); renderAll(); showToast('回した先を削除しました。'); }
+  function resetDestinationForm() { els.destinationForm.reset(); els.destinationIdInput.value = ''; els.destinationTargetInput.value = '0'; els.destinationSaveButton.textContent = '回した先を保存'; }
+
+  function addPretendSampleData() {
+    const today = dateKey(new Date());
+    const samples = [
+      { title: 'ホワサバ課金', amount: 150, categoryName: 'ゲーム課金', destinationName: 'リフォーム資金', memo: '少額だけど今月は我慢' },
+      { title: 'コンビニお菓子', amount: 300, categoryName: 'コンビニ', destinationName: 'NISA', memo: '家にあるもので済ませた' },
+      { title: 'タバコを吸ったつもり', amount: 500, categoryName: 'タバコ', destinationName: '車検代', memo: '吸ったつもり貯金' }
+    ];
+    samples.forEach((sample) => state.pretendSavings.push({ id: createId('pretend'), date: today, ...sample, createdAt: nowIso(), updatedAt: nowIso() }));
+    renderAll(); showToast('サンプルデータを3件追加しました。');
+  }
+
+  function deleteAllPretendData() {
+    if (!state.pretendSavings.length) return showToast('削除する記録がありません。');
+    if (!confirm(`使ったつもり貯金の記録${state.pretendSavings.length}件をすべて削除しますか？\nカテゴリ・回した先の設定は残ります。`)) return;
+    state.pretendSavings = [];
+    renderAll(); showToast('使ったつもり貯金の記録を全削除しました。');
+  }
+
   function renderAchievements() {
     const facts = buildAchievementFacts(els.achievementMonthInput.value || monthKey(new Date())); const newlyUnlocked = [];
     achievementDefinitions.forEach((def) => { const current = Number(def.current(facts) || 0); const already = state.achievementsSeen.some((item) => item.id === def.id); if (!already && current >= def.target) { state.achievementsSeen.push({ id: def.id, achievedAt: nowIso() }); newlyUnlocked.push(def.title); } });
@@ -485,7 +772,14 @@
     mergeByIdOrSignature(state.savings, importedSavings, (saving) => `${saving.name}|${saving.type}`);
     const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => normalizeExpense(obj, state.categories, state.stores)).filter(Boolean);
     mergeByIdOrSignature(state.expenses, importedExpenses, expenseSignature);
-    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件`);
+    const importedPretendCategories = objects.filter((obj) => obj.section === 'pretend_category').map(normalizeCategory).filter(Boolean);
+    state.pretendCategories = mergeByName(state.pretendCategories, importedPretendCategories);
+    const importedDestinations = objects.filter((obj) => obj.section === 'destination').map(normalizeDestination).filter(Boolean);
+    state.destinations = mergeDestinations(importedDestinations, state.destinations);
+    const importedPretend = objects.filter((obj) => obj.section === 'pretend_saving' || obj.type === 'pretend_saving').map(normalizePretend).filter(Boolean);
+    mergeByIdOrSignature(state.pretendSavings, importedPretend, pretendSignature);
+    state = normalizeState(state);
+    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・つもり貯金${importedPretend.length}件`);
   }
 
   function importExpenses(rows) { const imported = rowsToObjects(rows).map((obj) => normalizeExpense(obj, state.categories, state.stores)).filter(Boolean); mergeByIdOrSignature(state.expenses, imported, expenseSignature); renderAll(); showToast(`支出CSVから${imported.length}件読み込みました。`); }
@@ -497,13 +791,16 @@
   }
 
   function backupToRows() {
-    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'linked_goal_title', 'linked_goal_id', 'memo', 'created_at', 'updated_at'];
+    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'linked_goal_title', 'linked_goal_id', 'memo', 'created_at', 'updated_at', 'destination'];
     const rows = [header];
-    state.expenses.forEach((item) => rows.push(['expense', item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), '', '', '', '', '', '', '', '', item.memo || '', item.createdAt, item.updatedAt]));
-    state.goals.forEach((item) => rows.push(['goal', item.id, '', '', '', '', '', '', item.title, item.targetAmount, item.manualAmount || 0, item.dueDate || '', item.type, '', '', '', item.memo || '', item.createdAt, item.updatedAt]));
-    state.savings.forEach((item) => rows.push(['saving', item.id, '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', item.type, item.balance, getGoal(item.goalId)?.title || '', item.goalId || '', item.memo || '', item.createdAt, item.updatedAt]));
-    state.categories.forEach((item) => rows.push(['category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt]));
-    state.stores.forEach((item) => rows.push(['store', item.id, '', '', '', '', item.name, '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt]));
+    state.expenses.forEach((item) => rows.push(['expense', item.id, item.date, item.amount, item.categoryName, item.paymentMethod, item.storeName, normalizePhase(item.phase), '', '', '', '', '', '', '', '', item.memo || '', item.createdAt, item.updatedAt, '']));
+    state.goals.forEach((item) => rows.push(['goal', item.id, '', '', '', '', '', '', item.title, item.targetAmount, item.manualAmount || 0, item.dueDate || '', item.type, '', '', '', item.memo || '', item.createdAt, item.updatedAt, '']));
+    state.savings.forEach((item) => rows.push(['saving', item.id, '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', item.type, item.balance, getGoal(item.goalId)?.title || '', item.goalId || '', item.memo || '', item.createdAt, item.updatedAt, '']));
+    state.categories.forEach((item) => rows.push(['category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
+    state.stores.forEach((item) => rows.push(['store', item.id, '', '', '', '', item.name, '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
+    state.pretendSavings.forEach((item) => rows.push(['pretend_saving', item.id, item.date, item.amount, item.categoryName || '', '', '', '', item.title, '', '', '', 'pretend_saving', '', '', '', item.memo || '', item.createdAt, item.updatedAt, item.destinationName || '']));
+    state.pretendCategories.forEach((item) => rows.push(['pretend_category', item.id, '', '', item.name, '', '', '', '', '', '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
+    state.destinations.forEach((item) => rows.push(['destination', item.id, '', '', '', '', '', '', item.name, item.targetAmount || 0, '', '', '', '', '', '', '', item.createdAt, item.updatedAt, '']));
     return rows;
   }
 
@@ -512,7 +809,7 @@
   function resetAllData() {
     if (!confirm('全データを初期化しますか？\nCSVを書き出していないデータは戻せません。')) return;
     localStorage.removeItem(STORAGE_KEY); state = createFallbackState(); const today = new Date(); const thisMonth = monthKey(today);
-    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetCategoryForm(); resetStoreForm(); setComparePreset('month'); renderAll(); showToast('初期化しました。');
+    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetCategoryForm(); resetStoreForm(); resetPretendForm(); resetPretendCategoryForm(); resetDestinationForm(); els.pretendMonthFilter.value = ''; setComparePreset('month'); renderAll(); showToast('初期化しました。');
   }
 
   function normalizeExpense(item, categories, stores) {
@@ -526,6 +823,39 @@
 
   function normalizeGoal(item) { const title = String(item?.title || item?.name || item?.['タイトル'] || '').trim(); const targetAmount = parseAmount(item?.targetAmount ?? item?.target_amount ?? item?.target ?? item?.['目標金額']); if (!title || !Number.isFinite(targetAmount) || targetAmount <= 0) return null; const manualAmount = parseAmount(item?.manualAmount ?? item?.manual_amount ?? item?.currentAmount ?? item?.current_amount ?? item?.savedAmount ?? item?.['手入力済み額'] ?? 0); const type = ['experience', 'wish', 'reserve'].includes(item?.type) ? item.type : normalizeGoalType(item?.type || item?.['種類']); return { id: item.id || createId('goal'), title, targetAmount: Math.round(targetAmount), manualAmount: Number.isFinite(manualAmount) && manualAmount > 0 ? Math.round(manualAmount) : 0, dueDate: String(item.dueDate || item.due_date || item['目標時期'] || '').slice(0, 10), type, memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
   function normalizeSaving(item, goals) { const name = String(item?.name || item?.title || item?.['名称'] || '').trim(); const balance = parseAmount(item?.balance ?? item?.['残高']); if (!name || !Number.isFinite(balance) || balance < 0) return null; const typeText = String(item.type || item['種類'] || '').toLowerCase(); const type = typeText.includes('bank') || typeText.includes('銀行') ? 'bank' : 'envelope'; const targetAmount = parseAmount(item.targetAmount ?? item.target_amount ?? item['目安・上限額'] ?? 0); const goalById = goals.find((goal) => goal.id === item.goalId || goal.id === item.linked_goal_id); const goalByTitle = goals.find((goal) => goal.title === item.linked_goal_title || goal.title === item['連結する目標']); return { id: item.id || createId('save'), name, type, balance: Math.round(balance), targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0, goalId: goalById?.id || goalByTitle?.id || '', memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
+  function normalizePretend(item) {
+    const date = String(item?.date || item?.['日付'] || '').slice(0, 10);
+    const amount = parseAmount(item?.amount ?? item?.['金額']);
+    const title = String(item?.title || item?.['やめた支出名'] || item?.name || '').trim();
+    if (!date || !title || !Number.isFinite(amount) || amount <= 0) return null;
+    return {
+      id: item.id || createId('pretend'),
+      date, title, amount: Math.round(amount),
+      categoryName: String(item.categoryName || item.category || item['カテゴリ'] || '').trim(),
+      destinationName: String(item.destinationName || item.destination || item['回した先'] || '').trim(),
+      memo: String(item.memo || item['メモ'] || '').trim(),
+      createdAt: item.createdAt || item.created_at || nowIso(),
+      updatedAt: item.updatedAt || item.updated_at || nowIso()
+    };
+  }
+  function normalizeDestination(raw) {
+    const name = String(raw?.name || raw?.title || raw?.destination || raw?.['回した先'] || raw || '').trim();
+    if (!name) return null;
+    const targetAmount = parseAmount(raw?.targetAmount ?? raw?.target_amount ?? raw?.['目標金額'] ?? 0);
+    return { id: raw?.id || createId('dest'), name, targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? Math.round(targetAmount) : 0, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() };
+  }
+  function mergeDestinations(primary, secondary) {
+    const byName = new Map();
+    [...primary, ...secondary].forEach((item, index) => {
+      const norm = normalizeDestination(item);
+      if (!norm?.name) return;
+      if (!byName.has(norm.name)) byName.set(norm.name, { ...norm, sortOrder: Number.isFinite(Number(norm.sortOrder)) && Number(norm.sortOrder) !== 999 ? Number(norm.sortOrder) : index });
+      else if (norm.targetAmount > 0 && !byName.get(norm.name).targetAmount) byName.get(norm.name).targetAmount = norm.targetAmount;
+    });
+    return [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ja'));
+  }
+  function pretendSignature(item) { return `${item.date}|${item.title}|${item.amount}|${item.destinationName}|${item.memo}`; }
+
   function normalizeCategory(raw) { const name = String(raw?.name || raw?.category || raw || '').trim(); if (!name) return null; return { id: raw?.id || createId('cat'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeStore(raw) { const name = String(raw?.name || raw?.store || raw?.storeName || raw?.shop || raw || '').trim(); if (!name) return null; return { id: raw?.id || createId('store'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeAchievementSeen(item) { if (typeof item === 'string') return { id: item, achievedAt: nowIso() }; if (!item?.id) return null; return { id: item.id, achievedAt: item.achievedAt || item.achieved_at || nowIso() }; }
@@ -573,5 +903,5 @@
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
   function showToast(message) { els.toast.textContent = message; els.toast.classList.add('is-visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => els.toast.classList.remove('is-visible'), 2400); }
 
-  window.__kakeiboDebug = { getState: () => state, renderAll, setComparePreset };
+  window.__kakeiboDebug = { getState: () => state, renderAll, setComparePreset, backupToRows, importBackup, rowsToCsv, parseCsv, addPretendSampleData };
 })();
