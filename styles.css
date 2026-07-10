@@ -158,3 +158,14 @@ th { color: var(--muted); font-size: .8rem; }
 @media (max-width: 820px) {
   .budget-card-list, .budget-amounts { grid-template-columns: 1fr; }
 }
+
+/* v2.3.0 使ったつもり貯金 */
+.pretend-balance-card { display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.pretend-balance-card strong { display:block; font-size:clamp(2rem, 6vw, 3.2rem); color:#0f6d55; line-height:1.1; margin:6px 0; }
+.pretend-meter { flex:0 0 180px; height:18px; border-radius:999px; background:#e7efe9; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,.12); }
+.pretend-meter span { display:block; height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,#62cf95,#f4c85d); transition:width .25s ease; }
+.pretend-item strong::before { content:'💰 '; }
+.pretend-use-item strong::before { content:'🌈 '; }
+#tab-pretend .stat-card:nth-child(1) strong { color:#0f6d55; }
+#tab-pretend .stat-card:nth-child(4) strong { color:#bb6b18; }
+@media (max-width: 720px) { .pretend-balance-card { align-items:stretch; flex-direction:column; } .pretend-meter { flex:auto; width:100%; } }
