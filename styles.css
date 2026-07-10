@@ -169,3 +169,12 @@ th { color: var(--muted); font-size: .8rem; }
 #tab-pretend .stat-card:nth-child(1) strong { color:#0f6d55; }
 #tab-pretend .stat-card:nth-child(4) strong { color:#bb6b18; }
 @media (max-width: 720px) { .pretend-balance-card { align-items:stretch; flex-direction:column; } .pretend-meter { flex:auto; width:100%; } }
+
+
+/* v2.4.0 */
+.checkbox-grid { display: grid; gap: .55rem; border: 1px solid var(--line); border-radius: 16px; padding: .75rem; background: #fffdf4; }
+.saving-check { justify-content: flex-start; align-items: flex-start; }
+.saving-check small { display: block; color: var(--muted); font-weight: 700; margin-top: .15rem; }
+.item-actions { flex-wrap: wrap; justify-content: flex-end; }
+.category-chip .pill { margin-right: .25rem; }
+.goal-saving-select > span { display:block; font-weight:900; margin-bottom:.35rem; color: var(--muted); }

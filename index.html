@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.3.0</title>
+  <title>じぶん家計簿 v2.4.1</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +17,7 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.3.0</div>
+    <div class="version">v2.4.1</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -342,6 +344,12 @@
               <label><span>目標時期</span><input type="date" id="goalDueInput"></label>
               <label><span>種類</span><select id="goalTypeInput"><option value="experience">やりたいこと</option><option value="wish">欲しいもの</option><option value="reserve">備えるお金</option></select></label>
             </div>
+
+            <div class="goal-saving-select">
+              <span>貯金先（複数選択可）</span>
+              <div id="goalSavingsInputList" class="checkbox-grid"></div>
+              <p class="hint">目的別貯金タブに登録した封筒貯金・銀行貯金を複数選べます。同じ貯金先を複数目標に使うと進捗が重複表示されるので注意。</p>
+            </div>
             <label><span>メモ</span><input id="goalMemoInput" placeholder="任意"></label>
             <div class="form-actions"><button type="submit" class="primary" id="goalSaveButton">目標を保存</button><button type="button" class="ghost" id="goalClearButton">クリア</button></div>
           </form>
@@ -519,6 +527,7 @@
 
         <div class="card">
           <h3>カテゴリ設定</h3>
+          <p class="hint">初期カテゴリは固定順です。追加・編集・上下移動できます。カテゴリ名と同名の予算項目は入力時に自動選択されます。</p>
           <form id="categoryForm" class="stack-form">
             <input type="hidden" id="categoryIdInput">
             <label><span>カテゴリ名</span><input id="categoryNameInput" placeholder="例：猫用品 / 教育費"></label>
@@ -560,6 +569,8 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.4.1</strong><p>バグ修正版。削除したカテゴリ・予算項目がリロード後に復活する問題、デフォルトカテゴリを改名すると旧名が複製される問題、分割レシートの1行を編集するとグループ情報が消える問題、CSV復元で予算額が戻らない問題、貯金削除後に目標側へ連結情報が残る問題を修正。CSVに並び順を追加。</p></article>
+            <article><strong>v2.4.0</strong><p>目標タブに複数選択できる貯金先を追加。カテゴリ初期値を20項目に固定し、追加・編集・上下移動に対応。カテゴリ名と予算項目の連動を強化。予算項目の初期値を見直し。アイコンを更新。</p></article>
             <article><strong>v2.3.0</strong><p>使ったつもり貯金タブを追加。我慢した支出の履歴、今月・今年・累計の見える化、我慢したものランキング、貯めた分を価値ある使い道へ使った記録、CSVバックアップ、実績解除を追加。</p></article>
             <article><strong>v2.2.0</strong><p>予算管理タブを追加。月予算・使用額・残額・使用率を表示し、70%／90%／100%超過で段階警告。支出入力に「お小遣いから支出」と「予算枠」を追加。レシート分割入力、レシート合計・内訳合計・差額表示、一括CSVの予算対応、予算関連・分割入力関連の実績を追加。アイコンを新デザインに更新。</p></article>
             <article><strong>v2.1.0</strong><p>支出入力に「お店・支払先」を追加。お店別集計・比較・履歴フィルター・設定編集を実装。生活人数を削除し、生活フェーズを旧生活／新生活に整理。一括CSVバックアップに変更。アイコンを添付テイストで再作成。</p></article>
