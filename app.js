@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.4.1';
-  // 保存キーはデータ構造が同じためv240のまま維持（キーを変えると移行処理が走り、削除済みデフォルトの復活や並び順リセットが起きるため）
+  const APP_VERSION = '2.5.1';
+  // 保存データは後方互換で拡張しているためv240のキーを維持（既存データをそのまま引き継ぐ）
   const STORAGE_KEY = 'jun_kakeibo_expense_v240';
   const OLD_STORAGE_KEYS = [
     'jun_kakeibo_expense_v230',
@@ -84,6 +84,7 @@
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   let state = loadState();
   let toastTimer = null;
+  let pendingImportRows = [];
 
   const els = {
     tabs: $$('.tab'), panels: $$('.panel'), toast: $('#toast'),
@@ -91,6 +92,7 @@
     storeInput: $('#storeInput'), paymentMethodInput: $('#paymentMethodInput'), phaseInput: $('#phaseInput'), memoInput: $('#memoInput'), newCategoryInput: $('#newCategoryInput'), newStoreInput: $('#newStoreInput'), saveButton: $('#saveButton'), clearButton: $('#clearButton'),
     budgetInput: $('#budgetInput'), allowanceInput: $('#allowanceInput'), splitModeInput: $('#splitModeInput'), receiptTotalInput: $('#receiptTotalInput'), splitLineList: $('#splitLineList'), splitLineTotal: $('#splitLineTotal'), splitDiffTotal: $('#splitDiffTotal'), splitDiffMessage: $('#splitDiffMessage'), addSplitLineButton: $('#addSplitLineButton'), splitEntryPanel: $('#splitEntryPanel'),
     monthTotalTop: $('#monthTotalTop'),
+    paymentsMonthInput: $('#paymentsMonthInput'), paymentsPhaseInput: $('#paymentsPhaseInput'), paymentsTotal: $('#paymentsTotal'), paymentsCount: $('#paymentsCount'), paymentsAverage: $('#paymentsAverage'), paymentsLargest: $('#paymentsLargest'), paymentsLargestLabel: $('#paymentsLargestLabel'), paymentsMonthLabel: $('#paymentsMonthLabel'), paymentsMethodBreakdown: $('#paymentsMethodBreakdown'), paymentsCategoryBreakdown: $('#paymentsCategoryBreakdown'), paymentsStoreBreakdown: $('#paymentsStoreBreakdown'), paymentsList: $('#paymentsList'),
     budgetMonthInput: $('#budgetMonthInput'), budgetLimitTotal: $('#budgetLimitTotal'), budgetUsedTotal: $('#budgetUsedTotal'), budgetRemainTotal: $('#budgetRemainTotal'), budgetOverCount: $('#budgetOverCount'), budgetCardList: $('#budgetCardList'),
     leftTypeInput: $('#leftTypeInput'), rightTypeInput: $('#rightTypeInput'), leftMonthInput: $('#leftMonthInput'), rightMonthInput: $('#rightMonthInput'), leftYearInput: $('#leftYearInput'), rightYearInput: $('#rightYearInput'), leftPhaseInput: $('#leftPhaseInput'), rightPhaseInput: $('#rightPhaseInput'),
     leftTitle: $('#leftTitle'), rightTitle: $('#rightTitle'), leftTotal: $('#leftTotal'), rightTotal: $('#rightTotal'), leftStats: $('#leftStats'), rightStats: $('#rightStats'), diffLabel: $('#diffLabel'), diffTotal: $('#diffTotal'), diffComment: $('#diffComment'), categoryCompare: $('#categoryCompare'), methodCompare: $('#methodCompare'), storeCompare: $('#storeCompare'), budgetCompare: $('#budgetCompare'),
@@ -99,6 +101,7 @@
     savingForm: $('#savingForm'), savingIdInput: $('#savingIdInput'), savingNameInput: $('#savingNameInput'), savingTypeInput: $('#savingTypeInput'), savingBalanceInput: $('#savingBalanceInput'), savingTargetInput: $('#savingTargetInput'), savingGoalInput: $('#savingGoalInput'), savingMemoInput: $('#savingMemoInput'), savingSaveButton: $('#savingSaveButton'), savingClearButton: $('#savingClearButton'), savingList: $('#savingList'), envelopeSavingTotal: $('#envelopeSavingTotal'), bankSavingTotal: $('#bankSavingTotal'), savingTotal: $('#savingTotal'), linkedSavingCount: $('#linkedSavingCount'),
     pretendMonthInput: $('#pretendMonthInput'), pretendMonthTotal: $('#pretendMonthTotal'), pretendYearTotal: $('#pretendYearTotal'), pretendLifetimeTotal: $('#pretendLifetimeTotal'), pretendUsedTotal: $('#pretendUsedTotal'), pretendRemainingTotal: $('#pretendRemainingTotal'), pretendMeterFill: $('#pretendMeterFill'), pretendForm: $('#pretendForm'), pretendIdInput: $('#pretendIdInput'), pretendDateInput: $('#pretendDateInput'), pretendAmountInput: $('#pretendAmountInput'), pretendCategoryInput: $('#pretendCategoryInput'), pretendThingInput: $('#pretendThingInput'), pretendPlanInput: $('#pretendPlanInput'), pretendMemoInput: $('#pretendMemoInput'), pretendSaveButton: $('#pretendSaveButton'), pretendClearButton: $('#pretendClearButton'), pretendUseForm: $('#pretendUseForm'), pretendUseIdInput: $('#pretendUseIdInput'), pretendUseDateInput: $('#pretendUseDateInput'), pretendUseAmountInput: $('#pretendUseAmountInput'), pretendUsePurposeInput: $('#pretendUsePurposeInput'), pretendUseMemoInput: $('#pretendUseMemoInput'), pretendUseSaveButton: $('#pretendUseSaveButton'), pretendUseClearButton: $('#pretendUseClearButton'), pretendRankingList: $('#pretendRankingList'), pretendUseList: $('#pretendUseList'), pretendHistoryCount: $('#pretendHistoryCount'), pretendHistoryList: $('#pretendHistoryList'),
     achievementMonthInput: $('#achievementMonthInput'), achievementUnlockedCount: $('#achievementUnlockedCount'), achievementRecordDays: $('#achievementRecordDays'), achievementStreak: $('#achievementStreak'), achievementRank: $('#achievementRank'), nextAchievementList: $('#nextAchievementList'), achievementList: $('#achievementList'),
+    statementCsvInput: $('#statementCsvInput'), importPhaseInput: $('#importPhaseInput'), importFileSummary: $('#importFileSummary'), importDetectedCount: $('#importDetectedCount'), importRegisterCount: $('#importRegisterCount'), importReviewCount: $('#importReviewCount'), importExcludedCount: $('#importExcludedCount'), importRowList: $('#importRowList'), importRowsEmpty: $('#importRowsEmpty'), importSelectedButton: $('#importSelectedButton'), clearImportButton: $('#clearImportButton'), selectRegisterableButton: $('#selectRegisterableButton'), excludeAllImportButton: $('#excludeAllImportButton'), importRuleCount: $('#importRuleCount'), resetImportRulesButton: $('#resetImportRulesButton'),
     exportBackupCsvButton: $('#exportBackupCsvButton'), importBackupCsvInput: $('#importBackupCsvInput'),
     categoryForm: $('#categoryForm'), categoryIdInput: $('#categoryIdInput'), categoryNameInput: $('#categoryNameInput'), categorySaveButton: $('#categorySaveButton'), categoryClearButton: $('#categoryClearButton'), categoryList: $('#categoryList'),
     storeForm: $('#storeForm'), storeIdInput: $('#storeIdInput'), storeNameInput: $('#storeNameInput'), storeSaveButton: $('#storeSaveButton'), storeClearButton: $('#storeClearButton'), storeList: $('#storeList'),
@@ -114,6 +117,7 @@
     const thisMonth = monthKey(today);
     els.dateInput.value = dateKey(today);
     els.historyMonthInput.value = thisMonth;
+    els.paymentsMonthInput.value = thisMonth;
     els.budgetMonthInput.value = thisMonth;
     els.pretendMonthInput.value = thisMonth;
     els.pretendDateInput.value = dateKey(today);
@@ -144,6 +148,8 @@
     els.newCategoryInput.addEventListener('change', handleNewCategoryInline);
     els.newStoreInput.addEventListener('change', handleNewStoreInline);
 
+    [els.paymentsMonthInput, els.paymentsPhaseInput].forEach((input) => input.addEventListener('change', renderMonthlyPayments));
+
     [els.leftTypeInput, els.rightTypeInput].forEach((input) => input.addEventListener('change', () => { renderCompareControls(); renderCompare(); }));
     [els.leftMonthInput, els.rightMonthInput, els.leftYearInput, els.rightYearInput, els.leftPhaseInput, els.rightPhaseInput].forEach((input) => input.addEventListener('change', renderCompare));
     $$('.quick-buttons [data-preset]').forEach((button) => button.addEventListener('click', () => setComparePreset(button.dataset.preset)));
@@ -160,6 +166,15 @@
     els.pretendUseClearButton.addEventListener('click', resetPretendUseForm);
     els.pretendMonthInput.addEventListener('change', renderPretendSavings);
     els.achievementMonthInput.addEventListener('change', renderAchievements);
+
+    els.statementCsvInput.addEventListener('change', handleStatementFiles);
+    els.importPhaseInput.addEventListener('change', () => { pendingImportRows.forEach((row) => { row.phase = els.importPhaseInput.value; }); renderImportRows(); });
+    els.importRowList.addEventListener('change', handleImportRowChange);
+    els.importSelectedButton.addEventListener('click', importSelectedTransactions);
+    els.clearImportButton.addEventListener('click', clearPendingImports);
+    els.selectRegisterableButton.addEventListener('click', selectRegisterableRows);
+    els.excludeAllImportButton.addEventListener('click', excludeAllImportRows);
+    els.resetImportRulesButton.addEventListener('click', resetImportRules);
 
     els.exportBackupCsvButton.addEventListener('click', () => downloadCsv('一括バックアップ', backupToRows(), `kakeibo-backup_${stamp()}.csv`));
     els.importBackupCsvInput.addEventListener('change', (e) => importCsvFile(e, importBackup));
@@ -191,7 +206,7 @@
       categories: defaultCategoryNames.map((name, index) => ({ id: createId('cat'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
       stores: defaultStoreNames.map((name, index) => ({ id: createId('store'), name, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
       budgets: defaultBudgetItems.map(([name, monthlyLimit], index) => ({ id: createId('budget'), name, monthlyLimit, enabled: true, sortOrder: index, createdAt: nowIso(), updatedAt: nowIso() })),
-      expenses: [], goals: [], savings: [], pretendSavings: [], pretendUses: [], achievementsSeen: []
+      expenses: [], goals: [], savings: [], pretendSavings: [], pretendUses: [], importRules: [], achievementsSeen: []
     };
   }
 
@@ -209,7 +224,7 @@
     const savings = (Array.isArray(parsed.savings) ? parsed.savings : []).map((item) => normalizeSaving(item, goals)).filter(Boolean);
     const pretendSavings = (Array.isArray(parsed.pretendSavings) ? parsed.pretendSavings : []).map(normalizePretendSaving).filter(Boolean);
     const pretendUses = (Array.isArray(parsed.pretendUses) ? parsed.pretendUses : []).map(normalizePretendUse).filter(Boolean);
-    return normalizeState({ ...fallback, categories, stores, budgets, expenses, goals, savings, pretendSavings, pretendUses, achievementsSeen: Array.isArray(parsed.achievementsSeen) ? parsed.achievementsSeen : [] });
+    return normalizeState({ ...fallback, categories, stores, budgets, expenses, goals, savings, pretendSavings, pretendUses, importRules: Array.isArray(parsed.importRules) ? parsed.importRules : [], achievementsSeen: Array.isArray(parsed.achievementsSeen) ? parsed.achievementsSeen : [] });
   }
 
   function normalizeState(raw) {
@@ -226,7 +241,8 @@
     const expenses = Array.isArray(raw?.expenses) ? raw.expenses.map((item) => normalizeExpense(item, finalCategories, finalStores, budgets)).filter(Boolean) : [];
     const pretendSavings = Array.isArray(raw?.pretendSavings) ? raw.pretendSavings.map(normalizePretendSaving).filter(Boolean) : [];
     const pretendUses = Array.isArray(raw?.pretendUses) ? raw.pretendUses.map(normalizePretendUse).filter(Boolean) : [];
-    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, budgets, expenses, goals, savings, pretendSavings, pretendUses, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [] };
+    const importRules = Array.isArray(raw?.importRules) ? raw.importRules.map(normalizeImportRule).filter(Boolean) : [];
+    return { version: APP_VERSION, categories: finalCategories, stores: finalStores, budgets, expenses, goals, savings, pretendSavings, pretendUses, importRules, achievementsSeen: Array.isArray(raw?.achievementsSeen) ? raw.achievementsSeen.map(normalizeAchievementSeen).filter(Boolean) : [] };
   }
 
   function ensureState() { state = normalizeState(state); saveState(); }
@@ -235,6 +251,8 @@
   function switchTab(tabName) {
     els.tabs.forEach((tab) => tab.classList.toggle('is-active', tab.dataset.tab === tabName));
     els.panels.forEach((panel) => panel.classList.toggle('is-active', panel.id === `tab-${tabName}`));
+    if (tabName === 'import') renderImportRows();
+    if (tabName === 'payments') renderMonthlyPayments();
     if (tabName === 'budget') renderBudgetsDashboard();
     if (tabName === 'compare') renderCompare();
     if (tabName === 'pretend') renderPretendSavings();
@@ -242,10 +260,454 @@
   }
 
   function renderAll() {
-    renderCategorySelects(); renderStoreSelects(); renderBudgetSelects(); renderSplitLines(); renderTopTotal(); renderBudgetsDashboard(); renderCompareControls(); renderCompare();
+    renderCategorySelects(); renderStoreSelects(); renderBudgetSelects(); renderSplitLines(); renderTopTotal(); renderMonthlyPayments(); renderBudgetsDashboard(); renderCompareControls(); renderCompare();
     renderHistoryFilters(); renderHistory(); renderGoalSelects(); renderGoals(); renderSavings(); renderPretendSavings();
-    renderCategories(); renderStores(); renderBudgetSettings(); renderAchievements(); saveState();
+    renderCategories(); renderStores(); renderBudgetSettings(); renderAchievements(); renderImportRows(); saveState();
   }
+
+
+  // ---------- v2.5.0 カード・決済CSV明細取込 ----------
+  async function handleStatementFiles(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const parsedRows = [];
+    const summaries = [];
+    for (const file of files) {
+      try {
+        const text = decodeText(await file.arrayBuffer());
+        const result = parseStatementCsv(parseCsv(text), file.name);
+        parsedRows.push(...result.rows);
+        summaries.push(`${result.label} ${result.rows.length}件`);
+      } catch (error) {
+        console.error(error);
+        summaries.push(`${file.name}：未対応または読込失敗`);
+      }
+    }
+    pendingImportRows = parsedRows;
+    pendingImportRows.forEach((row, index) => { row.order = index; });
+    resolvePendingImportDuplicates();
+    pendingImportRows.forEach((row) => { row.phase = els.importPhaseInput.value; });
+    els.importFileSummary.innerHTML = `<strong>${files.length}ファイルを確認しました</strong><span>${escapeHtml(summaries.join(' ／ '))}</span>`;
+    event.target.value = '';
+    renderImportRows();
+    showToast(`${pendingImportRows.length}件の明細を検出しました。登録前に確認してください。`);
+  }
+
+  function parseStatementCsv(rows, filename) {
+    const format = detectStatementFormat(rows);
+    if (!format) throw new Error(`未対応CSV: ${filename}`);
+    const parsers = {
+      paypay_transactions: parsePayPayTransactions,
+      paypay_card: parsePayPayCard,
+      rakuten_card: parseRakutenCard,
+      kabu_card: parseKabuCard,
+      ucs_card: parseUcsCard
+    };
+    const result = parsers[format](rows, filename);
+    result.rows = result.rows.map((item, index) => buildImportRow(item, index));
+    return result;
+  }
+
+  function detectStatementFormat(rows) {
+    const all = rows.slice(0, 15).map((row) => row.map((cell) => normalizeHeader(cell)).join('|')).join('\n');
+    if (all.includes('取引日') && all.includes('出金金額(円)') && all.includes('取引内容') && all.includes('取引番号')) return 'paypay_transactions';
+    if (all.includes('利用日/キャンセル日') && all.includes('利用店名・商品名')) return 'paypay_card';
+    if (all.includes('支払方法コード') && all.includes('加盟店名称')) return 'ucs_card';
+    if (all.includes('ご利用日') && all.includes('ご利用先など')) return 'kabu_card';
+    if (all.includes('利用日') && all.includes('利用店名・商品名') && all.includes('支払総額')) return 'rakuten_card';
+    return '';
+  }
+
+  function findStatementHeader(rows, required) {
+    return rows.findIndex((row) => {
+      const cells = row.map(normalizeHeader);
+      return required.every((key) => cells.includes(normalizeHeader(key)));
+    });
+  }
+
+  function statementObjects(rows, headerIndex) {
+    if (headerIndex < 0) return [];
+    const header = rows[headerIndex].map((cell) => String(cell || '').trim());
+    return rows.slice(headerIndex + 1).filter((row) => row.some((cell) => String(cell || '').trim())).map((row, rowIndex) => ({
+      ...Object.fromEntries(header.map((key, index) => [key, row[index] ?? ''])),
+      __rowIndex: rowIndex
+    }));
+  }
+
+  function parsePayPayTransactions(rows, filename) {
+    const index = findStatementHeader(rows, ['取引日', '出金金額（円）', '取引内容', '取引先', '取引番号']);
+    const items = statementObjects(rows, index).map((obj) => {
+      const content = String(obj['取引内容'] || '').trim();
+      const amount = parseAmount(obj['出金金額（円）']);
+      const rawStore = String(obj['取引先'] || '').trim();
+      const methodDetail = String(obj['取引方法'] || '').trim();
+      const dateTime = normalizeStatementDateTime(obj['取引日']);
+      const excluded = content !== '支払い' || !Number.isFinite(amount) || amount <= 0;
+      return {
+        sourceType: 'paypay_transactions', sourceLabel: 'PayPay利用履歴', sourceFile: filename,
+        date: dateTime.slice(0, 10), dateTime, amount: Number.isFinite(amount) ? Math.round(amount) : 0,
+        rawStore, paymentMethod: /クレジット|カード/i.test(methodDetail) ? 'カード' : '電子マネー', paymentDetail: methodDetail, externalId: String(obj['取引番号'] || '').trim(),
+        componentAmounts: extractComponentAmounts(methodDetail, amount), excluded,
+        reason: excluded ? (content === '支払い' ? '金額を確認できない明細' : `${content}のため支出対象外`) : '',
+        originalIndex: obj.__rowIndex
+      };
+    });
+    const active = items.filter((item) => !item.excluded).sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+    const grouped = [];
+    active.forEach((item) => {
+      const key = merchantKey(normalizeKnownStore(item.rawStore));
+      const time = new Date(item.dateTime.replace(' ', 'T')).getTime();
+      const existing = grouped.find((group) => group.merchantKey === key && Math.abs(group.time - time) <= 5000);
+      if (existing) {
+        existing.amount += item.amount;
+        existing.componentAmounts = unique([...existing.componentAmounts, ...item.componentAmounts, item.amount]);
+        existing.externalId = [existing.externalId, item.externalId].filter(Boolean).join('|');
+        existing.paymentDetail = unique([existing.paymentDetail, item.paymentDetail]).join(' / ');
+        existing.rawStore = chooseLongerMerchant(existing.rawStore, item.rawStore);
+      } else grouped.push({ ...item, merchantKey: key, time });
+    });
+    const merged = grouped.map(({ merchantKey: _key, time: _time, ...item }) => item);
+    return { label: 'PayPay利用履歴', rows: merged };
+  }
+
+  function parsePayPayCard(rows, filename) {
+    const index = findStatementHeader(rows, ['利用日/キャンセル日', '利用店名・商品名', '利用金額']);
+    const result = statementObjects(rows, index).map((obj) => statementCardItem({
+      sourceType: 'paypay_card', sourceLabel: 'PayPayカード', sourceFile: filename,
+      date: obj['利用日/キャンセル日'], rawStore: obj['利用店名・商品名'], amount: obj['利用金額'],
+      paymentMethod: 'カード', paymentDetail: `${obj['決済方法'] || ''} ${obj['支払区分'] || ''}`.trim(),
+      originalIndex: obj.__rowIndex
+    }));
+    return { label: 'PayPayカード', rows: result };
+  }
+
+  function parseRakutenCard(rows, filename) {
+    const index = findStatementHeader(rows, ['利用日', '利用店名・商品名', '利用金額']);
+    const result = statementObjects(rows, index).map((obj) => statementCardItem({
+      sourceType: 'rakuten_card', sourceLabel: '楽天カード', sourceFile: filename,
+      date: obj['利用日'], rawStore: obj['利用店名・商品名'], amount: obj['利用金額'],
+      paymentMethod: 'カード', paymentDetail: String(obj['支払方法'] || '').trim(), originalIndex: obj.__rowIndex
+    }));
+    return { label: '楽天カード', rows: result };
+  }
+
+  function parseKabuCard(rows, filename) {
+    const index = findStatementHeader(rows, ['ご利用日', 'ご利用先など', 'ご利用金額(￥)']);
+    const result = statementObjects(rows, index).map((obj) => statementCardItem({
+      sourceType: 'kabu_card', sourceLabel: 'KABU＆カード', sourceFile: filename,
+      date: obj['ご利用日'], rawStore: obj['ご利用先など'], amount: obj['ご利用金額(￥)'],
+      paymentMethod: 'カード', paymentDetail: String(obj['支払区分'] || '').trim(), originalIndex: obj.__rowIndex
+    }));
+    return { label: 'KABU＆カード', rows: result };
+  }
+
+  function parseUcsCard(rows, filename) {
+    const index = findStatementHeader(rows, ['支払方法コード', '利用日', '加盟店名称', '利用金額']);
+    const result = statementObjects(rows, index).map((obj) => statementCardItem({
+      sourceType: 'ucs_card', sourceLabel: 'UCSカード', sourceFile: filename,
+      date: obj['利用日'], rawStore: obj['加盟店名称'], amount: obj['利用金額'],
+      paymentMethod: 'カード', paymentDetail: String(obj['支払方法'] || '').trim(), originalIndex: obj.__rowIndex
+    }));
+    return { label: 'UCSカード', rows: result };
+  }
+
+  function statementCardItem(item) {
+    const amount = parseAmount(item.amount);
+    const rawStore = String(item.rawStore || '').trim();
+    const excluded = isNonExpenseMerchant(rawStore) || !Number.isFinite(amount) || amount <= 0;
+    return {
+      ...item, date: normalizeStatementDate(item.date), amount: Number.isFinite(amount) ? Math.round(amount) : 0,
+      rawStore, externalId: `${item.sourceType}|${normalizeStatementDate(item.date)}|${merchantKey(rawStore)}|${Math.round(amount || 0)}|${item.originalIndex}`,
+      componentAmounts: Number.isFinite(amount) ? [Math.round(amount)] : [], excluded,
+      reason: excluded ? (isNonExpenseMerchant(rawStore) ? 'チャージ・投資などの資産移動' : '金額を確認できない明細') : ''
+    };
+  }
+
+  function buildImportRow(item, index) {
+    const classification = { ...classifyImportedMerchant(item) };
+    if (!state.categories.some((category) => category.name === classification.categoryName)) {
+      classification.categoryName = state.categories.some((category) => category.name === 'その他') ? 'その他' : state.categories[0]?.name || 'その他';
+      classification.budgetName = '';
+      classification.needsReview = true;
+      classification.reason = '保存済みカテゴリが見つからないため再確認が必要です';
+    }
+    if (classification.budgetName && !state.budgets.some((budget) => budget.name === classification.budgetName && budget.enabled !== false)) classification.budgetName = '';
+    const action = item.excluded || classification.action === 'exclude' ? 'exclude' : 'register';
+    const status = item.excluded || classification.action === 'exclude' ? 'excluded' : classification.needsReview ? 'review' : 'auto';
+    return {
+      id: createId('import'), ...item, storeName: classification.storeName, merchantKey: merchantKey(item.rawStore), duplicateStoreKey: merchantKey(classification.storeName),
+      categoryName: classification.categoryName, budgetName: classification.budgetName, paymentMethod: classification.paymentMethod || item.paymentMethod,
+      phase: els.importPhaseInput?.value || '旧生活', action, status, needsReview: status === 'review',
+      reason: item.reason || classification.reason, learnRule: false,
+      memo: classification.memo || buildImportMemo(item), order: index, initialAction: action, initialStatus: status
+    };
+  }
+
+  function classifyImportedMerchant(item) {
+    const key = merchantKey(item.rawStore);
+    const saved = state.importRules.find((rule) => rule.merchantKey === key && (rule.sourceType === item.sourceType || rule.sourceType === '*'));
+    if (saved) return { ...saved, needsReview: false, reason: '保存済みルールを適用' };
+    const text = normalizeMerchantText(item.rawStore);
+    const builtIns = [
+      { re: /netflix/i, storeName: 'Netflix', categoryName: '映画・サブスク', budgetName: '映画・サブスク' },
+      { re: /steam/i, storeName: 'Steam', categoryName: 'ゲーム代', budgetName: 'ゲーム代' },
+      { re: /ソフトバンク/i, storeName: 'ソフトバンク', categoryName: '通信費', budgetName: '' },
+      { re: /リトルファミリ[ー-]?.*保険/i, storeName: 'リトルファミリー少額短期保険', categoryName: '保険料', budgetName: '' },
+      { re: /歯科|医院|病院|クリニック|薬局/i, storeName: normalizeKnownStore(text), categoryName: '医療費', budgetName: '' }
+    ];
+    const hit = builtIns.find((rule) => rule.re.test(text));
+    if (hit) return { ...hit, paymentMethod: item.paymentMethod, action: 'register', needsReview: false, reason: '店名から自動分類' };
+    return {
+      storeName: normalizeKnownStore(text), categoryName: 'その他', budgetName: '', paymentMethod: item.paymentMethod,
+      action: 'register', needsReview: true, reason: '購入内容を店名だけでは判定できません'
+    };
+  }
+
+  function normalizeKnownStore(value) {
+    const text = normalizeMerchantText(value);
+    const known = [
+      [/^dcm(?:\s|-|$)/i, 'DCM'], [/セイコーマート/i, 'セイコーマート'], [/サツドラ/i, 'サツドラ'],
+      [/ニトリ/i, 'ニトリ'], [/ドン.?キホーテ/i, 'MEGAドン・キホーテ'], [/yahoo!?ショッピング/i, 'Yahoo!ショッピング'],
+      [/yahoo!?フリマ|ヤフーフリマ/i, 'Yahoo!フリマ'], [/楽天24/i, '楽天24'], [/楽天.*年会費/i, '楽天カード年会費'],
+      [/福田歯科医院/i, '福田歯科医院'], [/リトルファミリ[ー-]?/i, 'リトルファミリー少額短期保険'],
+      [/netflix/i, 'Netflix'], [/steam/i, 'Steam'], [/ソフトバンク/i, 'ソフトバンク']
+    ];
+    const found = known.find(([re]) => re.test(text));
+    return found ? found[1] : text || 'その他';
+  }
+
+  function resolvePendingImportDuplicates() {
+    const activePayPay = pendingImportRows.filter((row) => row.sourceType === 'paypay_transactions' && row.action === 'register');
+    const matchedPendingPayPay = new Set();
+    const matchedExistingPayPay = new Set();
+    const matchedExistingCard = new Set();
+    pendingImportRows.forEach((row) => {
+      const exactExisting = state.expenses.some((expense) => expense.sourceType === row.sourceType && expense.externalId && expense.externalId === row.externalId);
+      if (exactExisting) return markImportDuplicate(row, '同じCSV明細を登録済みです');
+      if (row.sourceType === 'paypay_card' && row.action === 'register') {
+        const pendingCandidate = activePayPay.find((paypay) => !matchedPendingPayPay.has(paypay.id) && isPayPayCardMatch(paypay, row));
+        if (pendingCandidate) { matchedPendingPayPay.add(pendingCandidate.id); return markImportDuplicate(row, 'PayPay利用履歴側に同じ買い物があります'); }
+        const existingCandidate = state.expenses.find((expense) => expense.sourceType === 'paypay_transactions' && !matchedExistingPayPay.has(expense.id) && isExistingPayPayMatch(expense, row));
+        if (existingCandidate) { matchedExistingPayPay.add(existingCandidate.id); return markImportDuplicate(row, 'PayPay利用履歴側に同じ買い物があります'); }
+      }
+      if (row.sourceType === 'paypay_transactions' && row.action === 'register') {
+        const existingCard = state.expenses.find((expense) => expense.sourceType === 'paypay_card' && !matchedExistingCard.has(expense.id) && isExistingCardMatch(expense, row));
+        if (existingCard) { matchedExistingCard.add(existingCard.id); return markImportReplacement(row, existingCard, '登録済みのPayPayカード明細を、金額情報が詳しいPayPay利用履歴へ置き換えます'); }
+      }
+      const samePending = row.externalId ? pendingImportRows.find((other) => other !== row && other.order < row.order && other.sourceType === row.sourceType && other.externalId === row.externalId) : null;
+      if (samePending) markImportDuplicate(row, '選択したCSV内で重複しています');
+    });
+  }
+
+  function isPayPayCardMatch(paypay, card) {
+    if ((paypay.duplicateStoreKey || merchantKey(paypay.storeName)) !== (card.duplicateStoreKey || merchantKey(card.storeName))) return false;
+    if (Math.abs(daysBetween(paypay.date, card.date)) > 20) return false;
+    return paypay.amount === card.amount || (paypay.componentAmounts || []).includes(card.amount);
+  }
+
+  function isExistingPayPayMatch(expense, card) {
+    const key = merchantKey(expense.storeName || expense.rawStore);
+    const cardKey = card.duplicateStoreKey || merchantKey(card.storeName);
+    if (key !== cardKey || Math.abs(daysBetween(expense.date, card.date)) > 20) return false;
+    const components = Array.isArray(expense.componentAmounts) ? expense.componentAmounts : parseIdList(expense.componentAmounts).map(Number);
+    return Number(expense.amount) === card.amount || components.includes(card.amount);
+  }
+
+  function isExistingCardMatch(expense, paypay) {
+    const expenseKey = merchantKey(expense.storeName || expense.rawStore);
+    const paypayKey = paypay.duplicateStoreKey || merchantKey(paypay.storeName);
+    if (expenseKey !== paypayKey || Math.abs(daysBetween(expense.date, paypay.date)) > 20) return false;
+    const components = Array.isArray(paypay.componentAmounts) ? paypay.componentAmounts : [];
+    return Number(expense.amount) === paypay.amount || components.includes(Number(expense.amount));
+  }
+
+  function markImportDuplicate(row, reason) {
+    row.action = 'exclude'; row.status = 'duplicate'; row.needsReview = false; row.reason = reason;
+  }
+
+  function markImportReplacement(row, expense, reason) {
+    row.storeName = expense.storeName || row.storeName;
+    row.duplicateStoreKey = merchantKey(row.storeName);
+    row.categoryName = expense.categoryName || row.categoryName;
+    row.budgetName = expense.budgetName || row.budgetName;
+    row.paymentMethod = expense.paymentMethod || row.paymentMethod;
+    row.phase = normalizePhase(expense.phase || row.phase);
+    row.memo = String(expense.memo || row.memo || '').trim();
+    row.action = 'register'; row.status = 'replace'; row.needsReview = false; row.reason = reason; row.replaceExpenseId = expense.id;
+  }
+
+  function handleImportRowChange(event) {
+    const target = event.target;
+    const row = pendingImportRows.find((item) => item.id === target.dataset.importId);
+    const field = target.dataset.importField;
+    if (!row || !field) return;
+    if (field === 'learnRule') row.learnRule = target.checked;
+    else row[field] = target.value;
+    if (field === 'categoryName') {
+      const sameBudget = findBudgetByName(target.value);
+      row.budgetName = sameBudget?.enabled === false ? '' : sameBudget?.name || '';
+      const budgetSelect = target.closest('.import-row')?.querySelector('[data-import-field="budgetName"]');
+      if (budgetSelect) budgetSelect.value = row.budgetName;
+    }
+    if (['storeName', 'categoryName', 'budgetName', 'paymentMethod'].includes(field)) {
+      row.needsReview = false;
+      if (row.action === 'register') { row.status = 'manual'; row.reason = '手動確認済み'; }
+    }
+    if (field === 'action' && target.value === 'register' && ['excluded', 'duplicate'].includes(row.status)) {
+      row.status = 'manual'; row.reason = '手動で登録対象に変更'; row.needsReview = false;
+    }
+    updateImportRowElement(row, target.closest('.import-row'));
+    updateImportSummary();
+  }
+
+  function updateImportRowElement(row, element) {
+    if (!element) return;
+    element.className = `import-row status-${row.status}${row.action === 'exclude' ? ' is-not-registering' : ''}`;
+    const label = element.querySelector('.import-status');
+    const reason = element.querySelector('.import-reason');
+    const statusLabels = { auto: '自動分類', review: '要確認', excluded: '対象外', duplicate: '重複候補', replace: '置換予定', manual: '確認済み' };
+    if (label) { label.className = `import-status ${row.status}`; label.textContent = statusLabels[row.status] || row.status; }
+    if (reason) reason.textContent = row.reason || '';
+  }
+
+  function updateImportSummary() {
+    const total = pendingImportRows.length;
+    const register = pendingImportRows.filter((row) => row.action === 'register').length;
+    const review = pendingImportRows.filter((row) => row.action === 'register' && row.needsReview).length;
+    const excluded = total - register;
+    els.importDetectedCount.textContent = `${total}件`;
+    els.importRegisterCount.textContent = `${register}件`;
+    els.importReviewCount.textContent = `${review}件`;
+    els.importExcludedCount.textContent = `${excluded}件`;
+    els.importRuleCount.textContent = `${state.importRules.length}件`;
+    els.importRowsEmpty.classList.toggle('is-hidden', total > 0);
+    els.importSelectedButton.disabled = register === 0;
+  }
+
+  function renderImportRows() {
+    if (!els.importRowList) return;
+    updateImportSummary();
+    els.importRowList.innerHTML = pendingImportRows.map(renderImportRow).join('');
+  }
+
+  function renderImportRow(row) {
+    const categories = state.categories.map((item) => `<option value="${escapeHtml(item.name)}" ${item.name === row.categoryName ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+    const budgets = ['<option value="">予算枠なし</option>', ...state.budgets.filter((item) => item.enabled !== false).map((item) => `<option value="${escapeHtml(item.name)}" ${item.name === row.budgetName ? 'selected' : ''}>${escapeHtml(item.name)}</option>`)].join('');
+    const methods = paymentMethods.map((method) => `<option value="${escapeHtml(method)}" ${method === row.paymentMethod ? 'selected' : ''}>${escapeHtml(method)}</option>`).join('');
+    const statusLabels = { auto: '自動分類', review: '要確認', excluded: '対象外', duplicate: '重複候補', replace: '置換予定', manual: '確認済み' };
+    return `<article class="import-row status-${escapeHtml(row.status)}${row.action === 'exclude' ? ' is-not-registering' : ''}">
+      <div class="import-row-top">
+        <div><span class="pill">${escapeHtml(row.sourceLabel)}</span><strong>${escapeHtml(row.rawStore || '名称なし')}</strong><span class="meta">${escapeHtml(row.date)} ／ ${escapeHtml(row.sourceFile)}</span></div>
+        <div class="import-amount"><strong>${formatYen(row.amount)}</strong><span class="import-status ${escapeHtml(row.status)}">${escapeHtml(statusLabels[row.status] || row.status)}</span></div>
+      </div>
+      <p class="import-reason">${escapeHtml(row.reason || '')}</p>
+      <div class="grid three import-edit-grid">
+        <label><span>登録</span><select data-import-id="${escapeHtml(row.id)}" data-import-field="action"><option value="register" ${row.action === 'register' ? 'selected' : ''}>家計簿へ登録</option><option value="exclude" ${row.action === 'exclude' ? 'selected' : ''}>登録しない</option></select></label>
+        <label><span>利用日</span><input type="date" value="${escapeHtml(row.date)}" data-import-id="${escapeHtml(row.id)}" data-import-field="date"></label>
+        <label><span>統一後の店名</span><input value="${escapeHtml(row.storeName)}" data-import-id="${escapeHtml(row.id)}" data-import-field="storeName"></label>
+        <label><span>カテゴリ</span><select data-import-id="${escapeHtml(row.id)}" data-import-field="categoryName">${categories}</select></label>
+        <label><span>予算枠</span><select data-import-id="${escapeHtml(row.id)}" data-import-field="budgetName">${budgets}</select></label>
+        <label><span>支払方法</span><select data-import-id="${escapeHtml(row.id)}" data-import-field="paymentMethod">${methods}</select></label>
+        <label><span>生活フェーズ</span><select data-import-id="${escapeHtml(row.id)}" data-import-field="phase"><option value="旧生活" ${row.phase === '旧生活' ? 'selected' : ''}>旧生活</option><option value="新生活" ${row.phase === '新生活' ? 'selected' : ''}>新生活</option></select></label>
+        <label class="import-memo-field"><span>メモ</span><input value="${escapeHtml(row.memo || '')}" data-import-id="${escapeHtml(row.id)}" data-import-field="memo"></label>
+        <label class="check-label import-learn-field"><span>次回の自動化</span><label class="check-row"><input type="checkbox" ${row.learnRule ? 'checked' : ''} data-import-id="${escapeHtml(row.id)}" data-import-field="learnRule"><span>次回もこの分類を使う</span></label></label>
+      </div>
+    </article>`;
+  }
+
+  function importSelectedTransactions() {
+    const selected = pendingImportRows.filter((row) => row.action === 'register');
+    if (!selected.length) return showToast('登録予定の明細がありません。');
+    let added = 0; let replaced = 0; let skipped = 0;
+    selected.forEach((row) => {
+      if (!row.date || !row.storeName || !row.categoryName || !Number.isFinite(Number(row.amount)) || Number(row.amount) <= 0) { skipped += 1; return; }
+      if (state.expenses.some((expense) => expense.sourceType === row.sourceType && expense.externalId && expense.externalId === row.externalId)) { skipped += 1; return; }
+      const category = addCategoryIfMissing(row.categoryName);
+      const store = addStoreIfMissing(row.storeName);
+      const budget = state.budgets.find((item) => item.name === row.budgetName);
+      const replacement = row.replaceExpenseId ? state.expenses.find((expense) => expense.id === row.replaceExpenseId) : null;
+      const payload = {
+        date: row.date, amount: Math.round(Number(row.amount)), categoryId: category.id, categoryName: category.name,
+        storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(row.paymentMethod), phase: normalizePhase(row.phase),
+        isAllowanceExpense: budget?.name === 'お小遣い', budgetId: budget?.id || '', budgetName: budget?.name || '', receiptGroupId: '', receiptTotal: '',
+        memo: String(row.memo || '').trim(), sourceType: row.sourceType, sourceLabel: row.sourceLabel, sourceFile: row.sourceFile,
+        externalId: row.externalId, rawStore: row.rawStore, merchantKey: row.merchantKey, componentAmounts: row.componentAmounts || [], updatedAt: nowIso()
+      };
+      if (replacement) { Object.assign(replacement, payload); replaced += 1; }
+      else { state.expenses.push({ id: createId('exp'), ...payload, createdAt: nowIso() }); added += 1; }
+      if (row.learnRule) saveImportRule(row);
+    });
+    pendingImportRows.filter((row) => row.action === 'exclude' && row.learnRule).forEach(saveImportRule);
+    const firstMonth = selected[0] ? monthKey(selected[0].date) : '';
+    pendingImportRows = [];
+    if (firstMonth) { els.historyMonthInput.value = firstMonth; els.paymentsMonthInput.value = firstMonth; }
+    renderAll();
+    switchTab('payments');
+    showToast(`${added}件を追加しました。${replaced ? `${replaced}件はPayPay利用履歴へ置き換えました。` : ''}${skipped ? `${skipped}件は重複・入力不足で見送りました。` : ''}`);
+  }
+
+  function saveImportRule(row) {
+    const rule = normalizeImportRule({
+      id: createId('importrule'), sourceType: row.sourceType, merchantKey: row.merchantKey,
+      storeName: row.storeName, categoryName: row.categoryName, budgetName: row.budgetName,
+      paymentMethod: row.paymentMethod, action: row.action, createdAt: nowIso(), updatedAt: nowIso()
+    });
+    if (!rule) return;
+    const existing = state.importRules.find((item) => item.sourceType === rule.sourceType && item.merchantKey === rule.merchantKey);
+    if (existing) Object.assign(existing, rule, { id: existing.id, updatedAt: nowIso() });
+    else state.importRules.push(rule);
+  }
+
+  function clearPendingImports() {
+    pendingImportRows = [];
+    els.importFileSummary.innerHTML = '<strong>まだCSVを選択していません</strong><span>カード会社ごとの形式を自動判定します。</span>';
+    renderImportRows();
+  }
+
+  function selectRegisterableRows() {
+    pendingImportRows.forEach((row) => {
+      row.action = row.initialAction === 'register' ? 'register' : 'exclude';
+    });
+    renderImportRows();
+  }
+
+  function excludeAllImportRows() { pendingImportRows.forEach((row) => { row.action = 'exclude'; }); renderImportRows(); }
+
+  function resetImportRules() {
+    if (!state.importRules.length) return showToast('保存済みの店名ルールはありません。');
+    if (!confirm('保存した店名・分類ルールをすべて初期化しますか？\n登録済みの支出データは消えません。')) return;
+    state.importRules = []; saveState(); renderImportRows(); showToast('店名ルールを初期化しました。');
+  }
+
+  function buildImportMemo(item) {
+    const detail = String(item.paymentDetail || '').trim();
+    return detail ? `CSV取込：${item.sourceLabel} / ${detail}` : `CSV取込：${item.sourceLabel}`;
+  }
+
+  function normalizeHeader(value) { return normalizeMerchantText(value).replace(/[（）]/g, (char) => char === '（' ? '(' : ')'); }
+  function normalizeMerchantText(value) { return String(value || '').normalize('NFKC').replace(/[‐‑‒–—―－]/g, '-').replace(/\s+/g, ' ').trim(); }
+  function merchantKey(value) { return normalizeMerchantText(value).toLowerCase().replace(/[!！'"“”‘’・.,，。()（）\[\]\s_-]/g, ''); }
+  function chooseLongerMerchant(a, b) { return normalizeMerchantText(a).length >= normalizeMerchantText(b).length ? a : b; }
+  function isNonExpenseMerchant(value) { return /チャージ|投信積立|証券.*積立|ポイント運用|ポイント.*獲得/i.test(normalizeMerchantText(value)); }
+  function normalizeStatementDate(value) {
+    const text = normalizeMerchantText(value);
+    const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+    const match = text.match(/(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
+    return match ? `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}` : '';
+  }
+  function normalizeStatementDateTime(value) {
+    const text = normalizeMerchantText(value);
+    const date = normalizeStatementDate(text);
+    const time = text.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+    return `${date} ${time ? `${String(time[1]).padStart(2, '0')}:${time[2]}:${time[3]}` : '00:00:00'}`;
+  }
+  function extractComponentAmounts(detail, total) {
+    const values = Array.from(String(detail || '').matchAll(/([\d,]+)円/g)).map((match) => parseAmount(match[1])).filter((value) => Number.isFinite(value) && value > 0).map(Math.round);
+    if (Number.isFinite(Number(total)) && Number(total) > 0) values.push(Math.round(Number(total)));
+    return unique(values);
+  }
+  function daysBetween(a, b) { return Math.round((new Date(`${a}T00:00:00`) - new Date(`${b}T00:00:00`)) / 86400000); }
 
   function handleExpenseSubmit(event) {
     event.preventDefault();
@@ -586,6 +1048,64 @@
       const l = leftMap[label] || 0; const r = rightMap[label] || 0; const d = r - l;
       return `<tr><td>${escapeHtml(label)}</td><td>${formatYen(l)}</td><td>${formatYen(r)}</td><td class="${d > 0 ? 'negative' : d < 0 ? 'positive' : ''}">${formatSignedYen(d)}</td></tr>`;
     }).join('')}</tbody></table>`;
+  }
+
+  // ---------- v2.5.1 月の支払い ----------
+  function renderMonthlyPayments() {
+    if (!els.paymentsMonthInput) return;
+    const month = els.paymentsMonthInput.value || monthKey(new Date());
+    const phase = els.paymentsPhaseInput.value;
+    const items = state.expenses
+      .filter((item) => monthKey(item.date) === month)
+      .filter((item) => !phase || normalizePhase(item.phase) === phase)
+      .sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    const total = sum(items.map((item) => item.amount));
+    const largest = items.reduce((max, item) => !max || Number(item.amount) > Number(max.amount) ? item : max, null);
+    els.paymentsTotal.textContent = formatYen(total);
+    els.paymentsCount.textContent = `${items.length}件`;
+    els.paymentsAverage.textContent = formatYen(items.length ? Math.round(total / items.length) : 0);
+    els.paymentsLargest.textContent = formatYen(largest?.amount || 0);
+    els.paymentsLargestLabel.textContent = largest ? `${largest.storeName || 'その他'} / ${largest.date}` : '-';
+    els.paymentsMonthLabel.textContent = `${formatMonthLabel(month)}${phase ? `・${phase}` : ''}`;
+    renderPaymentBreakdown(els.paymentsMethodBreakdown, items, 'paymentMethod');
+    renderPaymentBreakdown(els.paymentsCategoryBreakdown, items, 'categoryName');
+    renderPaymentBreakdown(els.paymentsStoreBreakdown, items, 'storeName', 8);
+    renderPaymentDayList(items);
+  }
+
+  function renderPaymentBreakdown(target, items, key, limit = 12) {
+    const groups = groupSum(items, key);
+    const rows = Object.entries(groups).sort((a, b) => b[1] - a[1]).slice(0, limit);
+    const total = sum(items.map((item) => item.amount));
+    if (!rows.length) { target.innerHTML = '<p class="hint">この月のデータはありません。</p>'; return; }
+    target.innerHTML = rows.map(([label, amount]) => {
+      const percent = total ? Math.round(amount / total * 100) : 0;
+      return `<div class="payment-breakdown-row"><div><strong>${escapeHtml(label)}</strong><span>${percent}%</span></div><em>${formatYen(amount)}</em><div class="payment-breakdown-bar"><span style="width:${Math.min(100, percent)}%"></span></div></div>`;
+    }).join('');
+  }
+
+  function renderPaymentDayList(items) {
+    if (!items.length) { els.paymentsList.innerHTML = '<p class="hint">この月に登録された支払いはありません。</p>'; return; }
+    const groups = items.reduce((map, item) => { (map[item.date] ||= []).push(item); return map; }, {});
+    els.paymentsList.innerHTML = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0])).map(([date, dayItems]) => {
+      const dayTotal = sum(dayItems.map((item) => item.amount));
+      return `<section class="payment-day"><div class="payment-day-head"><strong>${escapeHtml(formatJapaneseDate(date))}</strong><span>${dayItems.length}件 / ${formatYen(dayTotal)}</span></div><div class="payment-day-items">${dayItems.map(renderMonthlyPaymentItem).join('')}</div></section>`;
+    }).join('');
+    $$('[data-payment-edit]').forEach((button) => button.addEventListener('click', () => editExpense(button.dataset.paymentEdit)));
+  }
+
+  function renderMonthlyPaymentItem(item) {
+    const source = item.sourceLabel || (item.sourceType ? 'CSV取込' : '手入力');
+    const tags = [item.categoryName || '未分類', item.paymentMethod || 'その他', item.budgetName ? `予算:${item.budgetName}` : '', normalizePhase(item.phase), source].filter(Boolean);
+    return `<article class="payment-item"><div><strong>${escapeHtml(item.storeName || 'その他')}</strong><div class="meta">${tags.map(escapeHtml).join(' / ')}${item.memo ? ` / ${escapeHtml(item.memo)}` : ''}</div></div><div class="payment-item-side"><strong>${formatYen(item.amount)}</strong><button type="button" class="icon-button small" data-payment-edit="${escapeHtml(item.id)}">編集</button></div></article>`;
+  }
+
+  function formatJapaneseDate(date) {
+    const match = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return date || '-';
+    const value = new Date(`${date}T00:00:00`);
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    return `${Number(match[2])}月${Number(match[3])}日（${weekdays[value.getDay()]}）`;
   }
 
   function renderHistoryFilters() {
@@ -1067,9 +1587,11 @@
     mergeByIdOrSignature(state.pretendSavings, importedPretendSavings, pretendSignature);
     const importedPretendUses = objects.filter((obj) => obj.section === 'pretend_use').map(normalizePretendUse).filter(Boolean);
     mergeByIdOrSignature(state.pretendUses, importedPretendUses, pretendUseSignature);
+    const importedRules = objects.filter((obj) => obj.section === 'import_rule').map(normalizeImportRule).filter(Boolean);
+    importedRules.forEach((rule) => { const existing = state.importRules.find((item) => item.sourceType === rule.sourceType && item.merchantKey === rule.merchantKey); if (existing) Object.assign(existing, rule); else state.importRules.push(rule); });
     const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => normalizeExpense(obj, state.categories, state.stores, state.budgets)).filter(Boolean);
     mergeByIdOrSignature(state.expenses, importedExpenses, expenseSignature);
-    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・つもり貯金${importedPretendSavings.length}件・使い道${importedPretendUses.length}件・予算${importedBudgets.length}件`);
+    renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・つもり貯金${importedPretendSavings.length}件・使い道${importedPretendUses.length}件・予算${importedBudgets.length}件・店名ルール${importedRules.length}件`);
   }
 
   function importExpenses(rows) { const imported = rowsToObjects(rows).map((obj) => normalizeExpense(obj, state.categories, state.stores, state.budgets)).filter(Boolean); mergeByIdOrSignature(state.expenses, imported, expenseSignature); renderAll(); showToast(`支出CSVから${imported.length}件読み込みました。`); }
@@ -1081,10 +1603,10 @@
   }
 
   function backupToRows() {
-    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'budget_name', 'budget_id', 'is_allowance_expense', 'receipt_group_id', 'receipt_total', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'monthly_limit', 'enabled', 'sort_order', 'linked_goal_title', 'linked_goal_id', 'linked_saving_titles', 'linked_saving_ids', 'thing', 'planned_use', 'purpose', 'memo', 'created_at', 'updated_at'];
+    const header = ['section', 'id', 'date', 'amount', 'category', 'payment_method', 'store', 'phase', 'budget_name', 'budget_id', 'is_allowance_expense', 'receipt_group_id', 'receipt_total', 'title', 'target_amount', 'manual_amount', 'due_date', 'type', 'balance', 'monthly_limit', 'enabled', 'sort_order', 'linked_goal_title', 'linked_goal_id', 'linked_saving_titles', 'linked_saving_ids', 'thing', 'planned_use', 'purpose', 'memo', 'source_type', 'source_label', 'source_file', 'external_id', 'raw_store', 'merchant_key', 'component_amounts', 'rule_action', 'created_at', 'updated_at'];
     const rows = [header];
     const pushRow = (data) => rows.push(header.map((key) => data[key] ?? ''));
-    state.expenses.forEach((item) => pushRow({ section: 'expense', id: item.id, date: item.date, amount: item.amount, category: item.categoryName, payment_method: item.paymentMethod, store: item.storeName, phase: normalizePhase(item.phase), budget_name: item.budgetName || '', budget_id: item.budgetId || '', is_allowance_expense: item.isAllowanceExpense ? 'true' : 'false', receipt_group_id: item.receiptGroupId || '', receipt_total: item.receiptTotal || '', memo: item.memo || '', created_at: item.createdAt, updated_at: item.updatedAt }));
+    state.expenses.forEach((item) => pushRow({ section: 'expense', id: item.id, date: item.date, amount: item.amount, category: item.categoryName, payment_method: item.paymentMethod, store: item.storeName, phase: normalizePhase(item.phase), budget_name: item.budgetName || '', budget_id: item.budgetId || '', is_allowance_expense: item.isAllowanceExpense ? 'true' : 'false', receipt_group_id: item.receiptGroupId || '', receipt_total: item.receiptTotal || '', memo: item.memo || '', source_type: item.sourceType || '', source_label: item.sourceLabel || '', source_file: item.sourceFile || '', external_id: item.externalId || '', raw_store: item.rawStore || '', merchant_key: item.merchantKey || '', component_amounts: Array.isArray(item.componentAmounts) ? item.componentAmounts.join(' | ') : item.componentAmounts || '', created_at: item.createdAt, updated_at: item.updatedAt }));
     state.goals.forEach((item) => { const linked = getGoalProgress(item.id).linkedSavings; pushRow({ section: 'goal', id: item.id, title: item.title, target_amount: item.targetAmount, manual_amount: item.manualAmount || 0, due_date: item.dueDate || '', type: item.type, linked_saving_titles: linked.map((saving) => saving.name).join(' | '), linked_saving_ids: (item.savingIds || []).join(' | '), memo: item.memo || '', created_at: item.createdAt, updated_at: item.updatedAt }); });
     state.savings.forEach((item) => pushRow({ section: 'saving', id: item.id, title: item.name, target_amount: item.targetAmount || 0, type: item.type, balance: item.balance, linked_goal_title: getGoal(item.goalId)?.title || '', linked_goal_id: item.goalId || '', memo: item.memo || '', created_at: item.createdAt, updated_at: item.updatedAt }));
     state.pretendSavings.forEach((item) => pushRow({ section: 'pretend_saving', id: item.id, date: item.date, amount: item.amount, category: item.category, thing: item.thing, planned_use: item.plannedUse || '', memo: item.memo || '', created_at: item.createdAt, updated_at: item.updatedAt }));
@@ -1092,6 +1614,7 @@
     state.categories.forEach((item) => pushRow({ section: 'category', id: item.id, category: item.name, sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
     state.stores.forEach((item) => pushRow({ section: 'store', id: item.id, store: item.name, sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
     state.budgets.forEach((item) => pushRow({ section: 'budget', id: item.id, budget_name: item.name, budget_id: item.id, title: item.name, monthly_limit: item.monthlyLimit, enabled: item.enabled ? 'true' : 'false', sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
+    state.importRules.forEach((item) => pushRow({ section: 'import_rule', id: item.id, source_type: item.sourceType, merchant_key: item.merchantKey, store: item.storeName, category: item.categoryName, budget_name: item.budgetName || '', payment_method: item.paymentMethod || '', rule_action: item.action || 'register', created_at: item.createdAt, updated_at: item.updatedAt }));
     return rows;
   }
 
@@ -1099,8 +1622,8 @@
 
   function resetAllData() {
     if (!confirm('全データを初期化しますか？\nCSVを書き出していないデータは戻せません。')) return;
-    localStorage.removeItem(STORAGE_KEY); state = createFallbackState(); const today = new Date(); const thisMonth = monthKey(today);
-    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.budgetMonthInput.value = thisMonth; els.pretendMonthInput.value = thisMonth; els.pretendDateInput.value = dateKey(today); els.pretendUseDateInput.value = dateKey(today); els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetPretendForm(); resetPretendUseForm(); resetCategoryForm(); resetStoreForm(); resetBudgetForm(); setComparePreset('month'); renderAll(); showToast('初期化しました。');
+    localStorage.removeItem(STORAGE_KEY); state = createFallbackState(); pendingImportRows = []; const today = new Date(); const thisMonth = monthKey(today);
+    els.dateInput.value = dateKey(today); els.historyMonthInput.value = thisMonth; els.paymentsMonthInput.value = thisMonth; els.budgetMonthInput.value = thisMonth; els.pretendMonthInput.value = thisMonth; els.pretendDateInput.value = dateKey(today); els.pretendUseDateInput.value = dateKey(today); els.achievementMonthInput.value = thisMonth; resetExpenseForm(); resetGoalForm(); resetSavingForm(); resetPretendForm(); resetPretendUseForm(); resetCategoryForm(); resetStoreForm(); resetBudgetForm(); setComparePreset('month'); renderAll(); showToast('初期化しました。');
   }
 
   function normalizeExpense(item, categories, stores, budgets) {
@@ -1116,7 +1639,9 @@
     const isAllowanceExpense = allowanceRaw === true || String(allowanceRaw).toLowerCase() === 'true' || String(allowanceRaw) === '1' || String(allowanceRaw).includes('はい');
     const receiptGroupId = String(item.receiptGroupId || item.receipt_group_id || '').trim();
     const receiptTotal = parseAmount(item.receiptTotal ?? item.receipt_total ?? 0);
-    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), isAllowanceExpense, budgetId: budget?.id || '', budgetName: budget?.name || budgetNameRaw || '', receiptGroupId, receiptTotal: Number.isFinite(receiptTotal) && receiptTotal > 0 ? Math.round(receiptTotal) : '', memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
+    const componentRaw = item.componentAmounts ?? item.component_amounts ?? '';
+    const componentAmounts = Array.isArray(componentRaw) ? componentRaw.map(Number).filter(Number.isFinite) : parseIdList(componentRaw).map(Number).filter(Number.isFinite);
+    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), isAllowanceExpense, budgetId: budget?.id || '', budgetName: budget?.name || budgetNameRaw || '', receiptGroupId, receiptTotal: Number.isFinite(receiptTotal) && receiptTotal > 0 ? Math.round(receiptTotal) : '', memo: String(item.memo || item['メモ'] || '').trim(), sourceType: String(item.sourceType || item.source_type || '').trim(), sourceLabel: String(item.sourceLabel || item.source_label || '').trim(), sourceFile: String(item.sourceFile || item.source_file || '').trim(), externalId: String(item.externalId || item.external_id || '').trim(), rawStore: String(item.rawStore || item.raw_store || '').trim(), merchantKey: String(item.merchantKey || item.merchant_key || '').trim(), componentAmounts, createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
   }
 
   function normalizeGoal(item) { const title = String(item?.title || item?.name || item?.['タイトル'] || '').trim(); const targetAmount = parseAmount(item?.targetAmount ?? item?.target_amount ?? item?.target ?? item?.['目標金額']); if (!title || !Number.isFinite(targetAmount) || targetAmount <= 0) return null; const manualAmount = parseAmount(item?.manualAmount ?? item?.manual_amount ?? item?.currentAmount ?? item?.current_amount ?? item?.savedAmount ?? item?.['手入力済み額'] ?? 0); const type = ['experience', 'wish', 'reserve'].includes(item?.type) ? item.type : normalizeGoalType(item?.type || item?.['種類']); const savingIds = parseIdList(item?.savingIds ?? item?.saving_ids ?? item?.linked_saving_ids ?? item?.['貯金先ID'] ?? ''); return { id: item.id || createId('goal'), title, targetAmount: Math.round(targetAmount), manualAmount: Number.isFinite(manualAmount) && manualAmount > 0 ? Math.round(manualAmount) : 0, dueDate: String(item.dueDate || item.due_date || item['目標時期'] || '').slice(0, 10), type, savingIds, memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
@@ -1142,6 +1667,13 @@
   function normalizeCategory(raw) { const name = canonicalizeCategoryName(String(raw?.name || raw?.category || raw || '').trim()); if (!name) return null; return { id: raw?.id || createId('cat'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeStore(raw) { const name = String(raw?.name || raw?.store || raw?.storeName || raw?.shop || raw || '').trim(); if (!name) return null; return { id: raw?.id || createId('store'), name, sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeBudget(raw) { const name = canonicalizeBudgetName(String(raw?.name || raw?.budgetName || raw?.budget_name || raw?.title || raw?.['予算名'] || '').trim()); if (!name) return null; const monthlyLimit = parseAmount(raw?.monthlyLimit ?? raw?.monthly_limit ?? raw?.limit ?? raw?.monthly_amount ?? raw?.['月予算額'] ?? 0); const enabledText = String(raw?.enabled ?? raw?.['表示'] ?? 'true').toLowerCase(); return { id: raw?.id || raw?.budgetId || raw?.budget_id || createId('budget'), name, monthlyLimit: Number.isFinite(monthlyLimit) && monthlyLimit > 0 ? Math.round(monthlyLimit) : 0, enabled: !(enabledText === 'false' || enabledText === 'off' || enabledText === '0'), sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
+  function normalizeImportRule(item) {
+    const sourceType = String(item?.sourceType || item?.source_type || '*').trim() || '*';
+    const key = String(item?.merchantKey || item?.merchant_key || '').trim();
+    if (!key) return null;
+    const action = String(item?.action || item?.rule_action || 'register') === 'exclude' ? 'exclude' : 'register';
+    return { id: item?.id || createId('importrule'), sourceType, merchantKey: key, storeName: String(item?.storeName || item?.store || 'その他').trim() || 'その他', categoryName: canonicalizeCategoryName(String(item?.categoryName || item?.category || 'その他').trim() || 'その他'), budgetName: canonicalizeBudgetName(String(item?.budgetName || item?.budget_name || '').trim()), paymentMethod: normalizePaymentMethod(item?.paymentMethod || item?.payment_method || 'その他'), action, createdAt: item?.createdAt || item?.created_at || nowIso(), updatedAt: item?.updatedAt || item?.updated_at || nowIso() };
+  }
   function normalizeAchievementSeen(item) { if (typeof item === 'string') return { id: item, achievedAt: nowIso() }; if (!item?.id) return null; return { id: item.id, achievedAt: item.achievedAt || item.achieved_at || nowIso() }; }
 
   function mergeByName(primary, secondary) { const byName = new Map(); [...primary, ...secondary].forEach((item, index) => { const norm = item?.name ? item : normalizeCategory(item); if (!norm?.name) return; if (!byName.has(norm.name)) byName.set(norm.name, { ...norm, sortOrder: Number.isFinite(Number(norm.sortOrder)) ? Number(norm.sortOrder) : index }); }); return [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ja')); }
@@ -1236,5 +1768,5 @@
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
   function showToast(message) { els.toast.textContent = message; els.toast.classList.add('is-visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => els.toast.classList.remove('is-visible'), 2400); }
 
-  window.__kakeiboDebug = { getState: () => state, renderAll, setComparePreset };
+  window.__kakeiboDebug = { getState: () => state, getPendingImports: () => pendingImportRows, parseStatementCsv, renderAll, renderMonthlyPayments, importSelectedTransactions, setComparePreset, setPendingImports: (rows) => { pendingImportRows = rows; pendingImportRows.forEach((row, index) => { row.order = index; }); resolvePendingImportDuplicates(); return pendingImportRows; } };
 })();

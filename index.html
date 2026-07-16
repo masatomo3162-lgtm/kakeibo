@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.4.1</title>
+  <title>じぶん家計簿 v2.5.1</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" href="icon-192.png" type="image/png">
@@ -17,11 +17,13 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.4.1</div>
+    <div class="version">v2.5.1</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
     <button class="tab is-active" data-tab="input">入力</button>
+    <button class="tab" data-tab="import">明細取込</button>
+    <button class="tab" data-tab="payments">月の支払い</button>
     <button class="tab" data-tab="budget">予算</button>
     <button class="tab" data-tab="compare">比較</button>
     <button class="tab" data-tab="history">履歴</button>
@@ -151,6 +153,91 @@
           <button type="button" class="ghost" id="clearButton">クリア</button>
         </div>
       </form>
+    </section>
+
+
+    <section id="tab-import" class="panel" aria-labelledby="import-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="import-title">カード・決済CSV明細取込</h2>
+          <p>CSVを登録前に確認し、店名・カテゴリ・予算枠を整えてから家計簿へ追加します。</p>
+        </div>
+        <label class="month-picker"><span>生活フェーズ</span><select id="importPhaseInput"><option value="旧生活">旧生活</option><option value="新生活">新生活</option></select></label>
+      </div>
+
+      <div class="grid two settings-grid import-upload-grid">
+        <div class="card">
+          <h3>CSVファイルを選択</h3>
+          <p class="hint">複数ファイルを同時に選べます。現在はPayPay利用履歴、PayPayカード、楽天カード、KABU＆カード、UCSカードに対応しています。</p>
+          <div class="button-stack import-file-actions">
+            <label class="file-button">明細CSVを選択<input type="file" id="statementCsvInput" accept=".csv,text/csv" multiple></label>
+            <button type="button" class="ghost" id="clearImportButton">取込内容をクリア</button>
+          </div>
+          <div id="importFileSummary" class="note-box small-note import-file-summary"><strong>まだCSVを選択していません</strong><span>カード会社ごとの形式を自動判定します。</span></div>
+        </div>
+        <div class="card">
+          <h3>自動判定の考え方</h3>
+          <div class="import-rule-notes">
+            <p><span class="status-dot auto"></span> Netflix・Steam・保険・歯科などは自動分類</p>
+            <p><span class="status-dot review"></span> DCM・ドンキ・通販など中身が不明な店は要確認</p>
+            <p><span class="status-dot excluded"></span> チャージ・投信積立・ポイント運用は対象外</p>
+            <p><span class="status-dot duplicate"></span> PayPay利用履歴とカード請求の重複は自動除外</p>
+            <p><span class="status-dot auto"></span> カード明細を先に登録済みでも、後からPayPay利用履歴の総額へ置換</p>
+          </div>
+          <div class="import-rule-counter"><span>保存済みの店名ルール</span><strong id="importRuleCount">0件</strong><button type="button" class="danger small" id="resetImportRulesButton">店名ルールを初期化</button></div>
+        </div>
+      </div>
+
+      <div class="stats-grid import-stats">
+        <div class="stat-card"><span>検出した明細</span><strong id="importDetectedCount">0件</strong></div>
+        <div class="stat-card"><span>登録予定</span><strong id="importRegisterCount">0件</strong></div>
+        <div class="stat-card"><span>要確認</span><strong id="importReviewCount">0件</strong></div>
+        <div class="stat-card"><span>対象外・重複</span><strong id="importExcludedCount">0件</strong></div>
+      </div>
+
+      <div class="card import-review-card">
+        <div class="table-head import-review-head">
+          <div><strong>登録前の確認</strong><p class="hint">黄色の明細を中心に確認してください。店名や分類を直したら「次回もこの分類を使う」をONにできます。</p></div>
+          <div class="form-actions import-bulk-actions">
+            <button type="button" class="ghost small" id="selectRegisterableButton">候補を登録に戻す</button>
+            <button type="button" class="ghost small" id="excludeAllImportButton">すべて登録しない</button>
+            <button type="button" class="primary" id="importSelectedButton">登録予定の明細を追加</button>
+          </div>
+        </div>
+        <div id="importRowsEmpty" class="import-empty"><strong>CSVを選択すると、ここに明細が表示されます。</strong><span>登録ボタンを押すまでは家計簿データへ追加されません。</span></div>
+        <div id="importRowList" class="import-row-list"></div>
+      </div>
+    </section>
+
+    <section id="tab-payments" class="panel" aria-labelledby="payments-title">
+      <div class="card section-title-card">
+        <div>
+          <h2 id="payments-title">月の支払い</h2>
+          <p>利用日ベースで、その月に家計簿へ登録された支払いをまとめて確認します。カードの口座引落日ではありません。</p>
+        </div>
+        <div class="history-tools payment-month-tools">
+          <label><span>対象月</span><input type="month" id="paymentsMonthInput"></label>
+          <label><span>生活フェーズ</span><select id="paymentsPhaseInput"><option value="">すべて</option><option value="旧生活">旧生活</option><option value="新生活">新生活</option></select></label>
+        </div>
+      </div>
+
+      <div class="stats-grid payment-stats">
+        <div class="stat-card"><span>支払い合計</span><strong id="paymentsTotal">¥0</strong></div>
+        <div class="stat-card"><span>支払い件数</span><strong id="paymentsCount">0件</strong></div>
+        <div class="stat-card"><span>1件平均</span><strong id="paymentsAverage">¥0</strong></div>
+        <div class="stat-card"><span>最大の支払い</span><strong id="paymentsLargest">¥0</strong><small id="paymentsLargestLabel">-</small></div>
+      </div>
+
+      <div class="grid three payment-breakdown-grid">
+        <div class="card"><h3>支払方法別</h3><div id="paymentsMethodBreakdown" class="payment-breakdown"></div></div>
+        <div class="card"><h3>カテゴリ別</h3><div id="paymentsCategoryBreakdown" class="payment-breakdown"></div></div>
+        <div class="card"><h3>お店別</h3><div id="paymentsStoreBreakdown" class="payment-breakdown"></div></div>
+      </div>
+
+      <div class="card payment-list-card">
+        <div class="table-head"><div><strong>支払い明細</strong><p class="hint">日付ごとの小計と、CSV取込・手入力の区別も表示します。</p></div><span id="paymentsMonthLabel">-</span></div>
+        <div id="paymentsList" class="payment-day-list"></div>
+      </div>
     </section>
 
     <section id="tab-budget" class="panel" aria-labelledby="budget-title">
@@ -569,6 +656,8 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.5.1</strong><p>利用日ベースの「月の支払い」タブを追加。月別合計、件数、平均、最大支出、支払方法・カテゴリ・お店別の集計、日付別明細を表示。PayPay利用履歴とPayPayカード請求の重複判定を1対1照合へ改善。</p></article>
+            <article><strong>v2.5.0</strong><p>カード・決済CSVの明細取込タブを追加。5種類のCSV形式を自動判定し、登録前の店名・カテゴリ・予算枠確認、チャージ・投資の対象外判定、PayPay利用履歴とカード請求の重複候補除外、店名分類ルールの保存に対応。</p></article>
             <article><strong>v2.4.1</strong><p>バグ修正版。削除したカテゴリ・予算項目がリロード後に復活する問題、デフォルトカテゴリを改名すると旧名が複製される問題、分割レシートの1行を編集するとグループ情報が消える問題、CSV復元で予算額が戻らない問題、貯金削除後に目標側へ連結情報が残る問題を修正。CSVに並び順を追加。</p></article>
             <article><strong>v2.4.0</strong><p>目標タブに複数選択できる貯金先を追加。カテゴリ初期値を20項目に固定し、追加・編集・上下移動に対応。カテゴリ名と予算項目の連動を強化。予算項目の初期値を見直し。アイコンを更新。</p></article>
             <article><strong>v2.3.0</strong><p>使ったつもり貯金タブを追加。我慢した支出の履歴、今月・今年・累計の見える化、我慢したものランキング、貯めた分を価値ある使い道へ使った記録、CSVバックアップ、実績解除を追加。</p></article>
