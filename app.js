@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.5.1';
+  const APP_VERSION = '2.5.2';
   // 保存データは後方互換で拡張しているためv240のキーを維持（既存データをそのまま引き継ぐ）
   const STORAGE_KEY = 'jun_kakeibo_expense_v240';
   const OLD_STORAGE_KEYS = [
@@ -17,6 +17,7 @@
   const phases = ['旧生活', '新生活'];
   const savingTypeLabels = { envelope: '目的別封筒貯金', bank: '目的別銀行貯金' };
   const goalTypeLabels = { experience: 'やりたいこと', wish: '欲しいもの', reserve: '備えるお金' };
+  const importSourceLabels = { '*': 'すべての取込元', paypay_transactions: 'PayPay利用履歴', paypay_card: 'PayPayカード', rakuten_card: '楽天カード', kabu_card: 'KABU＆カード', ucs_card: 'UCSカード' };
 
   const defaultCategoryNames = [
     '食費', '外食費', '日用品費', '衣料品費', '車・ガソリン代', '交通費', '通信費', '教育費', '医療費', '水道光熱費',
@@ -101,7 +102,8 @@
     savingForm: $('#savingForm'), savingIdInput: $('#savingIdInput'), savingNameInput: $('#savingNameInput'), savingTypeInput: $('#savingTypeInput'), savingBalanceInput: $('#savingBalanceInput'), savingTargetInput: $('#savingTargetInput'), savingGoalInput: $('#savingGoalInput'), savingMemoInput: $('#savingMemoInput'), savingSaveButton: $('#savingSaveButton'), savingClearButton: $('#savingClearButton'), savingList: $('#savingList'), envelopeSavingTotal: $('#envelopeSavingTotal'), bankSavingTotal: $('#bankSavingTotal'), savingTotal: $('#savingTotal'), linkedSavingCount: $('#linkedSavingCount'),
     pretendMonthInput: $('#pretendMonthInput'), pretendMonthTotal: $('#pretendMonthTotal'), pretendYearTotal: $('#pretendYearTotal'), pretendLifetimeTotal: $('#pretendLifetimeTotal'), pretendUsedTotal: $('#pretendUsedTotal'), pretendRemainingTotal: $('#pretendRemainingTotal'), pretendMeterFill: $('#pretendMeterFill'), pretendForm: $('#pretendForm'), pretendIdInput: $('#pretendIdInput'), pretendDateInput: $('#pretendDateInput'), pretendAmountInput: $('#pretendAmountInput'), pretendCategoryInput: $('#pretendCategoryInput'), pretendThingInput: $('#pretendThingInput'), pretendPlanInput: $('#pretendPlanInput'), pretendMemoInput: $('#pretendMemoInput'), pretendSaveButton: $('#pretendSaveButton'), pretendClearButton: $('#pretendClearButton'), pretendUseForm: $('#pretendUseForm'), pretendUseIdInput: $('#pretendUseIdInput'), pretendUseDateInput: $('#pretendUseDateInput'), pretendUseAmountInput: $('#pretendUseAmountInput'), pretendUsePurposeInput: $('#pretendUsePurposeInput'), pretendUseMemoInput: $('#pretendUseMemoInput'), pretendUseSaveButton: $('#pretendUseSaveButton'), pretendUseClearButton: $('#pretendUseClearButton'), pretendRankingList: $('#pretendRankingList'), pretendUseList: $('#pretendUseList'), pretendHistoryCount: $('#pretendHistoryCount'), pretendHistoryList: $('#pretendHistoryList'),
     achievementMonthInput: $('#achievementMonthInput'), achievementUnlockedCount: $('#achievementUnlockedCount'), achievementRecordDays: $('#achievementRecordDays'), achievementStreak: $('#achievementStreak'), achievementRank: $('#achievementRank'), nextAchievementList: $('#nextAchievementList'), achievementList: $('#achievementList'),
-    statementCsvInput: $('#statementCsvInput'), importPhaseInput: $('#importPhaseInput'), importFileSummary: $('#importFileSummary'), importDetectedCount: $('#importDetectedCount'), importRegisterCount: $('#importRegisterCount'), importReviewCount: $('#importReviewCount'), importExcludedCount: $('#importExcludedCount'), importRowList: $('#importRowList'), importRowsEmpty: $('#importRowsEmpty'), importSelectedButton: $('#importSelectedButton'), clearImportButton: $('#clearImportButton'), selectRegisterableButton: $('#selectRegisterableButton'), excludeAllImportButton: $('#excludeAllImportButton'), importRuleCount: $('#importRuleCount'), resetImportRulesButton: $('#resetImportRulesButton'),
+    statementCsvInput: $('#statementCsvInput'), importPhaseInput: $('#importPhaseInput'), importFileSummary: $('#importFileSummary'), importDetectedCount: $('#importDetectedCount'), importRegisterCount: $('#importRegisterCount'), importReviewCount: $('#importReviewCount'), importExcludedCount: $('#importExcludedCount'), importRowList: $('#importRowList'), importRowsEmpty: $('#importRowsEmpty'), importSelectedButton: $('#importSelectedButton'), clearImportButton: $('#clearImportButton'), selectRegisterableButton: $('#selectRegisterableButton'), excludeAllImportButton: $('#excludeAllImportButton'), importRuleCount: $('#importRuleCount'), openImportRulesButton: $('#openImportRulesButton'), resetImportRulesButton: $('#resetImportRulesButton'),
+    importRuleManagerCard: $('#importRuleManagerCard'), importRuleForm: $('#importRuleForm'), importRuleIdInput: $('#importRuleIdInput'), importRuleSourceInput: $('#importRuleSourceInput'), importRuleMerchantInput: $('#importRuleMerchantInput'), importRuleStoreInput: $('#importRuleStoreInput'), importRuleCategoryInput: $('#importRuleCategoryInput'), importRuleBudgetInput: $('#importRuleBudgetInput'), importRulePaymentInput: $('#importRulePaymentInput'), importRuleActionInput: $('#importRuleActionInput'), importRuleSaveButton: $('#importRuleSaveButton'), importRuleClearButton: $('#importRuleClearButton'), importRuleSearchInput: $('#importRuleSearchInput'), importRuleManagerCount: $('#importRuleManagerCount'), importRuleListEmpty: $('#importRuleListEmpty'), importRuleList: $('#importRuleList'),
     exportBackupCsvButton: $('#exportBackupCsvButton'), importBackupCsvInput: $('#importBackupCsvInput'),
     categoryForm: $('#categoryForm'), categoryIdInput: $('#categoryIdInput'), categoryNameInput: $('#categoryNameInput'), categorySaveButton: $('#categorySaveButton'), categoryClearButton: $('#categoryClearButton'), categoryList: $('#categoryList'),
     storeForm: $('#storeForm'), storeIdInput: $('#storeIdInput'), storeNameInput: $('#storeNameInput'), storeSaveButton: $('#storeSaveButton'), storeClearButton: $('#storeClearButton'), storeList: $('#storeList'),
@@ -174,7 +176,11 @@
     els.clearImportButton.addEventListener('click', clearPendingImports);
     els.selectRegisterableButton.addEventListener('click', selectRegisterableRows);
     els.excludeAllImportButton.addEventListener('click', excludeAllImportRows);
+    els.openImportRulesButton.addEventListener('click', openImportRuleManager);
     els.resetImportRulesButton.addEventListener('click', resetImportRules);
+    els.importRuleForm.addEventListener('submit', handleImportRuleSubmit);
+    els.importRuleClearButton.addEventListener('click', resetImportRuleForm);
+    els.importRuleSearchInput.addEventListener('input', renderImportRuleManager);
 
     els.exportBackupCsvButton.addEventListener('click', () => downloadCsv('一括バックアップ', backupToRows(), `kakeibo-backup_${stamp()}.csv`));
     els.importBackupCsvInput.addEventListener('change', (e) => importCsvFile(e, importBackup));
@@ -257,12 +263,13 @@
     if (tabName === 'compare') renderCompare();
     if (tabName === 'pretend') renderPretendSavings();
     if (tabName === 'achievements') renderAchievements();
+    if (tabName === 'settings') renderImportRuleManager();
   }
 
   function renderAll() {
     renderCategorySelects(); renderStoreSelects(); renderBudgetSelects(); renderSplitLines(); renderTopTotal(); renderMonthlyPayments(); renderBudgetsDashboard(); renderCompareControls(); renderCompare();
     renderHistoryFilters(); renderHistory(); renderGoalSelects(); renderGoals(); renderSavings(); renderPretendSavings();
-    renderCategories(); renderStores(); renderBudgetSettings(); renderAchievements(); renderImportRows(); saveState();
+    renderCategories(); renderStores(); renderBudgetSettings(); renderAchievements(); renderImportRows(); renderImportRuleManager(); saveState();
   }
 
 
@@ -445,7 +452,8 @@
 
   function classifyImportedMerchant(item) {
     const key = merchantKey(item.rawStore);
-    const saved = state.importRules.find((rule) => rule.merchantKey === key && (rule.sourceType === item.sourceType || rule.sourceType === '*'));
+    const saved = state.importRules.find((rule) => rule.merchantKey === key && rule.sourceType === item.sourceType)
+      || state.importRules.find((rule) => rule.merchantKey === key && rule.sourceType === '*');
     if (saved) return { ...saved, needsReview: false, reason: '保存済みルールを適用' };
     const text = normalizeMerchantText(item.rawStore);
     const builtIns = [
@@ -648,7 +656,7 @@
 
   function saveImportRule(row) {
     const rule = normalizeImportRule({
-      id: createId('importrule'), sourceType: row.sourceType, merchantKey: row.merchantKey,
+      id: createId('importrule'), sourceType: row.sourceType, rawStore: row.rawStore, merchantKey: row.merchantKey,
       storeName: row.storeName, categoryName: row.categoryName, budgetName: row.budgetName,
       paymentMethod: row.paymentMethod, action: row.action, createdAt: nowIso(), updatedAt: nowIso()
     });
@@ -676,7 +684,129 @@
   function resetImportRules() {
     if (!state.importRules.length) return showToast('保存済みの店名ルールはありません。');
     if (!confirm('保存した店名・分類ルールをすべて初期化しますか？\n登録済みの支出データは消えません。')) return;
-    state.importRules = []; saveState(); renderImportRows(); showToast('店名ルールを初期化しました。');
+    state.importRules = []; resetImportRuleForm(); renderAll(); showToast('店名ルールを初期化しました。');
+  }
+
+  function openImportRuleManager() {
+    switchTab('settings');
+    window.setTimeout(() => els.importRuleManagerCard?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function renderImportRuleManager() {
+    if (!els.importRuleList) return;
+    const current = {
+      store: els.importRuleStoreInput.value,
+      category: els.importRuleCategoryInput.value,
+      budget: els.importRuleBudgetInput.value,
+      payment: els.importRulePaymentInput.value,
+      action: els.importRuleActionInput.value
+    };
+    const storeNames = unique([...state.stores.map((item) => item.name), ...state.importRules.map((item) => item.storeName)].filter(Boolean));
+    const categoryNames = unique([...state.categories.map((item) => item.name), ...state.importRules.map((item) => item.categoryName)].filter(Boolean));
+    const budgetNames = unique([...state.budgets.filter((item) => item.enabled !== false).map((item) => item.name), ...state.importRules.map((item) => item.budgetName)].filter(Boolean));
+    els.importRuleStoreInput.innerHTML = storeNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    els.importRuleCategoryInput.innerHTML = categoryNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    els.importRuleBudgetInput.innerHTML = '<option value="">予算枠なし</option>' + budgetNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    if (current.store && storeNames.includes(current.store)) els.importRuleStoreInput.value = current.store;
+    if (current.category && categoryNames.includes(current.category)) els.importRuleCategoryInput.value = current.category;
+    if (budgetNames.includes(current.budget)) els.importRuleBudgetInput.value = current.budget;
+    if (paymentMethods.includes(current.payment)) els.importRulePaymentInput.value = current.payment;
+    if (['register', 'exclude'].includes(current.action)) els.importRuleActionInput.value = current.action;
+
+    const query = normalizeMerchantText(els.importRuleSearchInput.value).toLowerCase();
+    const rules = [...state.importRules]
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')) || String(a.rawStore || a.merchantKey).localeCompare(String(b.rawStore || b.merchantKey), 'ja'))
+      .filter((rule) => !query || [rule.rawStore, rule.merchantKey, rule.storeName, rule.categoryName, rule.budgetName, importSourceLabels[rule.sourceType] || rule.sourceType].some((value) => normalizeMerchantText(value).toLowerCase().includes(query)));
+    els.importRuleManagerCount.textContent = `${rules.length}件 / 全${state.importRules.length}件`;
+    els.importRuleListEmpty.classList.toggle('is-hidden', rules.length > 0);
+    els.importRuleList.innerHTML = rules.map(renderImportRuleItem).join('');
+    $$('[data-edit-import-rule]').forEach((button) => button.addEventListener('click', () => editImportRule(button.dataset.editImportRule)));
+    $$('[data-delete-import-rule]').forEach((button) => button.addEventListener('click', () => deleteImportRule(button.dataset.deleteImportRule)));
+  }
+
+  function renderImportRuleItem(rule) {
+    const original = rule.rawStore || rule.merchantKey;
+    const actionLabel = rule.action === 'exclude' ? '登録しない' : '家計簿へ登録';
+    return `<article class="import-rule-item${rule.action === 'exclude' ? ' is-excluded' : ''}">
+      <div class="import-rule-item-head">
+        <div><span class="pill">${escapeHtml(importSourceLabels[rule.sourceType] || rule.sourceType)}</span><strong>${escapeHtml(original)}</strong><small>判定キー：${escapeHtml(rule.merchantKey)}</small></div>
+        <span class="import-rule-action ${rule.action === 'exclude' ? 'excluded' : ''}">${escapeHtml(actionLabel)}</span>
+      </div>
+      <div class="import-rule-route"><span>${escapeHtml(original)}</span><b>→</b><strong>${escapeHtml(rule.storeName)}</strong></div>
+      <div class="import-rule-details"><span>カテゴリ：<strong>${escapeHtml(rule.categoryName)}</strong></span><span>予算枠：<strong>${escapeHtml(rule.budgetName || 'なし')}</strong></span><span>支払方法：<strong>${escapeHtml(rule.paymentMethod)}</strong></span></div>
+      <div class="item-actions"><button type="button" class="icon-button" data-edit-import-rule="${escapeHtml(rule.id)}">編集</button><button type="button" class="icon-button danger-text" data-delete-import-rule="${escapeHtml(rule.id)}">削除</button></div>
+    </article>`;
+  }
+
+  function handleImportRuleSubmit(event) {
+    event.preventDefault();
+    const id = els.importRuleIdInput.value;
+    const rawStore = normalizeMerchantText(els.importRuleMerchantInput.value);
+    const merchant = merchantKey(rawStore);
+    const sourceType = els.importRuleSourceInput.value || '*';
+    if (!rawStore || !merchant) return showToast('明細に表示される店名を入力してください。');
+    const duplicate = state.importRules.find((item) => item.sourceType === sourceType && item.merchantKey === merchant && item.id !== id);
+    if (duplicate) return showToast('同じ取込元・店名のルールがすでにあります。');
+    const payload = normalizeImportRule({
+      id: id || createId('importrule'), sourceType, rawStore, merchantKey: merchant,
+      storeName: els.importRuleStoreInput.value, categoryName: els.importRuleCategoryInput.value,
+      budgetName: els.importRuleBudgetInput.value, paymentMethod: els.importRulePaymentInput.value,
+      action: els.importRuleActionInput.value, createdAt: nowIso(), updatedAt: nowIso()
+    });
+    if (!payload) return showToast('店名ルールを保存できませんでした。');
+    if (id) {
+      const existing = state.importRules.find((item) => item.id === id);
+      if (!existing) return showToast('編集対象の店名ルールが見つかりません。');
+      Object.assign(existing, payload, { id: existing.id, createdAt: existing.createdAt || payload.createdAt, updatedAt: nowIso() });
+      applyImportRuleToPending(existing);
+      showToast('店名ルールを更新しました。');
+    } else {
+      state.importRules.push(payload);
+      applyImportRuleToPending(payload);
+      showToast('店名ルールを追加しました。');
+    }
+    resetImportRuleForm(); renderAll();
+  }
+
+  function editImportRule(id) {
+    const rule = state.importRules.find((item) => item.id === id);
+    if (!rule) return;
+    els.importRuleIdInput.value = rule.id;
+    els.importRuleSourceInput.value = rule.sourceType;
+    els.importRuleMerchantInput.value = rule.rawStore || rule.merchantKey;
+    els.importRuleStoreInput.value = rule.storeName;
+    els.importRuleCategoryInput.value = rule.categoryName;
+    els.importRuleBudgetInput.value = rule.budgetName || '';
+    els.importRulePaymentInput.value = rule.paymentMethod;
+    els.importRuleActionInput.value = rule.action;
+    els.importRuleSaveButton.textContent = '店名ルールを更新';
+    els.importRuleForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function deleteImportRule(id) {
+    const rule = state.importRules.find((item) => item.id === id);
+    if (!rule) return;
+    if (!confirm(`店名ルール「${rule.rawStore || rule.merchantKey}」を削除しますか？\n登録済みの支出データは消えません。`)) return;
+    state.importRules = state.importRules.filter((item) => item.id !== id);
+    if (els.importRuleIdInput.value === id) resetImportRuleForm();
+    renderAll(); showToast('店名ルールを削除しました。');
+  }
+
+  function resetImportRuleForm() {
+    els.importRuleForm.reset();
+    els.importRuleIdInput.value = '';
+    els.importRuleSourceInput.value = '*';
+    els.importRulePaymentInput.value = 'カード';
+    els.importRuleActionInput.value = 'register';
+    els.importRuleSaveButton.textContent = '店名ルールを保存';
+    renderImportRuleManager();
+  }
+
+  function applyImportRuleToPending(rule) {
+    pendingImportRows.forEach((row) => {
+      if (row.merchantKey !== rule.merchantKey || !(rule.sourceType === '*' || row.sourceType === rule.sourceType)) return;
+      Object.assign(row, { storeName: rule.storeName, categoryName: rule.categoryName, budgetName: rule.budgetName, paymentMethod: rule.paymentMethod, action: rule.action, initialAction: rule.action, needsReview: false, status: rule.action === 'exclude' ? 'excluded' : 'auto', reason: '編集した保存済みルールを適用' });
+    });
   }
 
   function buildImportMemo(item) {
@@ -1614,7 +1744,7 @@
     state.categories.forEach((item) => pushRow({ section: 'category', id: item.id, category: item.name, sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
     state.stores.forEach((item) => pushRow({ section: 'store', id: item.id, store: item.name, sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
     state.budgets.forEach((item) => pushRow({ section: 'budget', id: item.id, budget_name: item.name, budget_id: item.id, title: item.name, monthly_limit: item.monthlyLimit, enabled: item.enabled ? 'true' : 'false', sort_order: item.sortOrder, created_at: item.createdAt, updated_at: item.updatedAt }));
-    state.importRules.forEach((item) => pushRow({ section: 'import_rule', id: item.id, source_type: item.sourceType, merchant_key: item.merchantKey, store: item.storeName, category: item.categoryName, budget_name: item.budgetName || '', payment_method: item.paymentMethod || '', rule_action: item.action || 'register', created_at: item.createdAt, updated_at: item.updatedAt }));
+    state.importRules.forEach((item) => pushRow({ section: 'import_rule', id: item.id, source_type: item.sourceType, raw_store: item.rawStore || '', merchant_key: item.merchantKey, store: item.storeName, category: item.categoryName, budget_name: item.budgetName || '', payment_method: item.paymentMethod || '', rule_action: item.action || 'register', created_at: item.createdAt, updated_at: item.updatedAt }));
     return rows;
   }
 
@@ -1669,10 +1799,11 @@
   function normalizeBudget(raw) { const name = canonicalizeBudgetName(String(raw?.name || raw?.budgetName || raw?.budget_name || raw?.title || raw?.['予算名'] || '').trim()); if (!name) return null; const monthlyLimit = parseAmount(raw?.monthlyLimit ?? raw?.monthly_limit ?? raw?.limit ?? raw?.monthly_amount ?? raw?.['月予算額'] ?? 0); const enabledText = String(raw?.enabled ?? raw?.['表示'] ?? 'true').toLowerCase(); return { id: raw?.id || raw?.budgetId || raw?.budget_id || createId('budget'), name, monthlyLimit: Number.isFinite(monthlyLimit) && monthlyLimit > 0 ? Math.round(monthlyLimit) : 0, enabled: !(enabledText === 'false' || enabledText === 'off' || enabledText === '0'), sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 999), createdAt: raw?.createdAt || raw?.created_at || nowIso(), updatedAt: raw?.updatedAt || raw?.updated_at || nowIso() }; }
   function normalizeImportRule(item) {
     const sourceType = String(item?.sourceType || item?.source_type || '*').trim() || '*';
-    const key = String(item?.merchantKey || item?.merchant_key || '').trim();
+    const rawStore = normalizeMerchantText(item?.rawStore || item?.raw_store || item?.originalStore || item?.original_store || '');
+    const key = String(item?.merchantKey || item?.merchant_key || merchantKey(rawStore)).trim();
     if (!key) return null;
     const action = String(item?.action || item?.rule_action || 'register') === 'exclude' ? 'exclude' : 'register';
-    return { id: item?.id || createId('importrule'), sourceType, merchantKey: key, storeName: String(item?.storeName || item?.store || 'その他').trim() || 'その他', categoryName: canonicalizeCategoryName(String(item?.categoryName || item?.category || 'その他').trim() || 'その他'), budgetName: canonicalizeBudgetName(String(item?.budgetName || item?.budget_name || '').trim()), paymentMethod: normalizePaymentMethod(item?.paymentMethod || item?.payment_method || 'その他'), action, createdAt: item?.createdAt || item?.created_at || nowIso(), updatedAt: item?.updatedAt || item?.updated_at || nowIso() };
+    return { id: item?.id || createId('importrule'), sourceType, rawStore, merchantKey: key, storeName: String(item?.storeName || item?.store || 'その他').trim() || 'その他', categoryName: canonicalizeCategoryName(String(item?.categoryName || item?.category || 'その他').trim() || 'その他'), budgetName: canonicalizeBudgetName(String(item?.budgetName || item?.budget_name || '').trim()), paymentMethod: normalizePaymentMethod(item?.paymentMethod || item?.payment_method || 'その他'), action, createdAt: item?.createdAt || item?.created_at || nowIso(), updatedAt: item?.updatedAt || item?.updated_at || nowIso() };
   }
   function normalizeAchievementSeen(item) { if (typeof item === 'string') return { id: item, achievedAt: nowIso() }; if (!item?.id) return null; return { id: item.id, achievedAt: item.achievedAt || item.achieved_at || nowIso() }; }
 
