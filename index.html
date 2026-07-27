@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.5.2</title>
+  <title>じぶん家計簿 v2.6.1</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" href="icon-192.png" type="image/png">
@@ -17,7 +17,7 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.5.2</div>
+    <div class="version">v2.6.1</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -213,7 +213,7 @@
       <div class="card section-title-card">
         <div>
           <h2 id="payments-title">月の支払い</h2>
-          <p>利用日ベースで、その月に家計簿へ登録された支払いをまとめて確認します。カードの口座引落日ではありません。</p>
+          <p>利用日ベースで、その月に家計簿へ登録された支払いをまとめて確認します。カードの口座引落日ではありません。支払方法・カテゴリ・お店の集計項目をタップすると、該当する支出だけの一覧と編集ができます。</p>
         </div>
         <div class="history-tools payment-month-tools">
           <label><span>対象月</span><input type="month" id="paymentsMonthInput"></label>
@@ -244,7 +244,7 @@
       <div class="card section-title-card">
         <div>
           <h2 id="budget-title">予算管理</h2>
-          <p>お小遣い・食費・娯楽費など、今月あといくら使えるかを見える化します。</p>
+          <p>お小遣い・食費・娯楽費など、今月あといくら使えるかを見える化します。予算カードをタップすると、その予算に登録された支出の一覧と編集ができます。</p>
         </div>
         <label class="month-picker"><span>対象月</span><input type="month" id="budgetMonthInput"></label>
       </div>
@@ -255,6 +255,10 @@
         <div class="stat-card"><span>超過中</span><strong id="budgetOverCount">0件</strong></div>
       </div>
       <div id="budgetCardList" class="budget-card-list"></div>
+      <div class="card budget-unassigned-card">
+        <button type="button" class="ghost" id="unassignedExpensesButton">予算に含まれていない支出を見る（0件）</button>
+        <p class="hint">予算枠が未設定・削除済み・無効（OFF）の支出をまとめて確認し、そのまま編集して予算枠を設定できます。</p>
+      </div>
     </section>
 
     <section id="tab-compare" class="panel" aria-labelledby="compare-title">
@@ -572,7 +576,7 @@
       <div class="card section-title-card achievement-hero">
         <div>
           <h2 id="achievements-title">実績解除</h2>
-          <p>使った金額ではなく、記録・比較・見直しが続くほど解除されます。</p>
+          <p>使った金額ではなく、記録・比較・見直しが続くほど解除されます。全300件。カテゴリと解除状態で絞り込みできます。</p>
         </div>
         <label class="month-picker"><span>対象月</span><input type="month" id="achievementMonthInput"></label>
       </div>
@@ -581,6 +585,28 @@
         <div><span>対象月の記録日数</span><strong id="achievementRecordDays">0日</strong></div>
         <div><span>最長連続記録</span><strong id="achievementStreak">0日</strong></div>
         <div><span>称号</span><strong id="achievementRank">見習い記録係</strong></div>
+      </div>
+      <div class="card achievement-filter-card">
+        <div class="history-tools achievement-filter-tools">
+          <label><span>実績カテゴリ</span><select id="achievementCategoryFilter">
+            <option value="">すべて</option>
+            <option value="記録">記録</option>
+            <option value="継続">継続</option>
+            <option value="支払い">支払い</option>
+            <option value="予算">予算</option>
+            <option value="レシート">レシート</option>
+            <option value="CSV取込">CSV取込</option>
+            <option value="節約">節約</option>
+            <option value="目標・貯金">目標・貯金</option>
+            <option value="趣味・生活">趣味・生活</option>
+          </select></label>
+          <label><span>解除状態</span><select id="achievementStateFilter">
+            <option value="">すべて</option>
+            <option value="unlocked">解除済み</option>
+            <option value="locked">未解除</option>
+          </select></label>
+          <div class="achievement-filter-count"><span>表示中</span><strong id="achievementFilterCount">0件</strong></div>
+        </div>
       </div>
       <div class="grid two">
         <div class="card">
@@ -696,6 +722,8 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.6.1</strong><p>削除済みの予算IDを持つ支出が、同名の現役予算へ誤って再割当・集計される問題を修正。予算の紐付けはID完全一致を最優先とし、予算名での補完はIDが空の旧データのみに限定。存在しないIDはそのまま保持して「予算に含まれていない支出」として扱い、一覧上では「削除済み予算」「無効な予算」を区別して表示。1件の支出が複数予算へ二重集計されないことを回帰テストで確認。</p></article>
+            <article><strong>v2.6.0</strong><p>予算カードのタップでその予算の支出一覧を表示。「予算に含まれていない支出」一覧を追加し、削除済み・無効な予算に紐づく支出も確認可能に。月の支払いの支払方法・カテゴリ・お店集計をタップ可能にして明細一覧を表示。各一覧から既存の編集フォームへ移動でき、更新後は全集計を即時再計算。実績を41件から300件へ拡張し、実績カテゴリ・解除状態の絞り込みと称号11段階を追加。大量解除時の通知をまとめ表示。既存データ・CSV・実績解除状況は完全互換。</p></article>
             <article><strong>v2.5.2</strong><p>保存済みの店名ルールを一覧表示し、取込元・元の店名・統一後の店名・カテゴリ・予算枠・支払方法・登録対象を個別に編集・削除できる管理画面を追加。検索絞り込みにも対応。</p></article>
             <article><strong>v2.5.1</strong><p>利用日ベースの「月の支払い」タブを追加。月別合計、件数、平均、最大支出、支払方法・カテゴリ・お店別の集計、日付別明細を表示。PayPay利用履歴とPayPayカード請求の重複判定を1対1照合へ改善。</p></article>
             <article><strong>v2.5.0</strong><p>カード・決済CSVの明細取込タブを追加。5種類のCSV形式を自動判定し、登録前の店名・カテゴリ・予算枠確認、チャージ・投資の対象外判定、PayPay利用履歴とカード請求の重複候補除外、店名分類ルールの保存に対応。</p></article>
@@ -714,6 +742,18 @@
       </div>
     </section>
   </main>
+
+  <dialog id="expenseListDialog" class="expense-dialog" aria-labelledby="expenseDialogTitle">
+    <div class="expense-dialog-inner">
+      <header class="expense-dialog-head">
+        <div><h3 id="expenseDialogTitle">支出一覧</h3><p id="expenseDialogSubtitle" class="hint"></p></div>
+        <button type="button" class="ghost small" id="expenseDialogCloseButton">閉じる</button>
+      </header>
+      <div id="expenseDialogStats" class="expense-dialog-stats"></div>
+      <p id="expenseDialogNote" class="hint expense-dialog-note is-hidden"></p>
+      <div id="expenseDialogList" class="expense-dialog-list"></div>
+    </div>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>

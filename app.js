@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.5.2';
+  const APP_VERSION = '2.6.1';
   // 保存データは後方互換で拡張しているためv240のキーを維持（既存データをそのまま引き継ぐ）
   const STORAGE_KEY = 'jun_kakeibo_expense_v240';
   const OLD_STORAGE_KEYS = [
@@ -14,6 +14,7 @@
   ];
 
   const paymentMethods = ['現金', 'カード', '電子マネー', '口座引き落とし', 'その他'];
+  const paymentBreakdownKinds = { paymentMethod: '支払方法別', categoryName: 'カテゴリ別', storeName: 'お店別' };
   const phases = ['旧生活', '新生活'];
   const savingTypeLabels = { envelope: '目的別封筒貯金', bank: '目的別銀行貯金' };
   const goalTypeLabels = { experience: 'やりたいこと', wish: '欲しいもの', reserve: '備えるお金' };
@@ -35,7 +36,7 @@
     ['酒代', 10000], ['日用品費', 12000], ['ゲーム代', 5000], ['映画・サブスク', 5000]
   ];
 
-  const achievementDefinitions = [
+  const legacyAchievementDefinitions = [
     { id: 'first_receipt', emoji: '🧾', title: 'レシート1枚目を捕獲', description: '支出を1件登録する。ここから生活ログ開始。', target: 1, current: (f) => f.totalEntries },
     { id: 'july_start', emoji: '🎋', title: '七月作戦、開始', description: '2026年7月分を1件登録する。正式運用のスタート地点。', target: 1, current: (f) => f.julyEntries },
     { id: 'three_days', emoji: '🔥', title: '三日坊主撃退', description: '対象月に3日分記録する。まずはここを超えたら勝ち。', target: 3, current: (f) => f.recordDays },
@@ -81,11 +82,477 @@
     { id: 'goal_achieved', emoji: '🎉', title: '目標の宝箱を開けた', description: '目標を1件達成する。記録が行動につながった証拠。', target: 1, current: (f) => f.goalAchievedCount }
   ];
 
+  // ---------- v2.6.0 実績定義（合計300件・固定定義） ----------
+  // 既存41件（legacyAchievementDefinitions）のIDは絶対に変更しない。
+  // 新規259件は下の固定リストから決定的に生成する（実行時のランダム生成なし・順序固定）。
+  const legacyAchievementCategories = {
+    first_receipt: '記録', july_start: '記録', three_days: '記録', seven_days: '記録', twenty_days: '記録',
+    ten_receipts: '記録', fifty_receipts: '記録', hundred_receipts: '記録', memo_ten: '記録', compare_ready: '記録', year_compare_ready: '記録',
+    streak_three: '継続', streak_seven: '継続',
+    category_five: '支払い', store_five: '支払い', store_ten: '支払い', method_three: '支払い',
+    budget_first: '予算', allowance_first: '予算', budget_food: '予算', budget_fun: '予算', budget_calm: '予算', budget_close: '予算', budget_over: '予算',
+    split_first: 'レシート', split_trial: 'レシート', split_whisky: 'レシート', split_match: 'レシート',
+    pretend_first: '節約', pretend_month_5000: '節約', pretend_lifetime_30000: '節約', pretend_whisky: '節約', pretend_game: '節約', pretend_used: '節約',
+    goal_first: '目標・貯金', saving_first: '目標・貯金', linked_saving: '目標・貯金', goal_achieved: '目標・貯金',
+    new_life_phase: '趣味・生活', whisky_first: '趣味・生活', game_first: '趣味・生活'
+  };
+
+  function buildExtendedAchievementDefinitions() {
+    const defs = [];
+    const series = (prefix, category, factKey, rows) => rows.forEach(([target, emoji, title, description]) => defs.push({ id: `${prefix}_${target}`, emoji, title, description, target, category, current: (f) => f[factKey] }));
+
+    // ===== 記録（45件） =====
+    series('rec_total', '記録', 'totalEntries', [
+      [3, '🧾', 'レシート三銃士', '支出を合計3件記録する。まだ序章。'],
+      [5, '📎', '五枚の生活証拠', '支出を合計5件記録する。'],
+      [15, '📚', 'レシートの山に登り始めた', '支出を合計15件記録する。山の入口が見えた。'],
+      [25, '🗃️', '財布のHPを観測中', '支出を合計25件記録する。ダメージ計算が始まる。'],
+      [60, '🧮', '記録の歯車が回り出す', '支出を合計60件記録する。'],
+      [75, '🗂️', '仕分け中毒の入口', '支出を合計75件記録する。'],
+      [150, '🏔️', 'レシートの森を進む者', '支出を合計150件記録する。'],
+      [200, '🌋', '家計簿ラスボス第一形態', '支出を合計200件記録する。まだ第一形態。'],
+      [250, '🛡️', '数字から逃げなかった者', '支出を合計250件記録する。'],
+      [300, '🏰', '記録の要塞、建設中', '支出を合計300件記録する。'],
+      [400, '🐉', 'レシートドラゴン討伐隊', '支出を合計400件記録する。'],
+      [500, '👑', '五百件の帳簿王', '支出を合計500件記録する。'],
+      [1000, '🌌', '千件の生活年代記', '支出を合計1,000件記録する。もはや歴史書。']
+    ]);
+    series('rec_days', '記録', 'recordDays', [
+      [5, '🗓️', '月5日の定点観測', '対象月に5日分記録する。'],
+      [10, '📅', '月の折り返し監視員', '対象月に10日分記録する。'],
+      [15, '🌗', '半月の記録番', '対象月に15日分記録する。'],
+      [25, '🌖', 'ほぼ皆勤の帳簿係', '対象月に25日分記録する。'],
+      [28, '🌕', '1か月ほぼ毎日ヨシ', '対象月に28日分記録する。ほぼ毎日。']
+    ]);
+    series('rec_memo', '記録', 'memoEntries', [
+      [1, '✏️', '最初のひとことメモ', 'メモ付き支出を1件登録する。'],
+      [25, '📝', '未来へ送る25通', 'メモ付き支出を25件登録する。未来の自分から感謝状。'],
+      [100, '📜', 'メモ百連発', 'メモ付き支出を100件登録する。'],
+      [300, '🖋️', '生活の脚注職人', 'メモ付き支出を300件登録する。']
+    ]);
+    series('rec_months', '記録', 'monthCount', [
+      [3, '📆', '三か月続いた実力', '3か月分の支出を記録する。奇跡ではなく実力。'],
+      [6, '🌓', '半年分の生活地図', '6か月分の支出を記録する。'],
+      [12, '🎂', '一年分の家計アルバム', '12か月分の支出を記録する。'],
+      [24, '🕰️', '二年目の帳簿マラソン', '24か月分の支出を記録する。'],
+      [36, '🏛️', '三年史の編纂者', '36か月分の支出を記録する。'],
+      [48, '🗿', '四年目の生活考古学', '48か月分の支出を記録する。レシート考古学者の風格。']
+    ]);
+    series('rec_years', '記録', 'yearCount', [
+      [3, '🎍', '三年またぎの記録者', '3年分以上の支出年を記録する。']
+    ]);
+    series('rec_day_max', '記録', 'maxEntriesPerDay', [
+      [3, '🛍️', '買い物ラッシュの日', '1日に3件記録する。'],
+      [5, '🌀', 'レシート乱舞デー', '1日に5件記録する。'],
+      [8, '🎪', '買い物フェス開催日', '1日に8件記録する。']
+    ]);
+    series('rec_amount_total', '記録', 'lifetimeAmount', [
+      [100000, '💴', '諭吉、行方確認ヨシ', '合計記録金額が10万円を超える。'],
+      [300000, '💰', '三十万円の見える化', '合計記録金額が30万円を超える。'],
+      [500000, '🧳', '五十万円の家計台帳', '合計記録金額が50万円を超える。'],
+      [1000000, '🏦', '百万円の記録長者', '合計記録金額が100万円を超える。使った額ではなく、記録した額。'],
+      [3000000, '🚢', '三百万円の航海日誌', '合計記録金額が300万円を超える。'],
+      [5000000, '🏯', '五百万円の帳簿城主', '合計記録金額が500万円を超える。']
+    ]);
+    series('rec_amount_max', '記録', 'maxExpenseAmount', [
+      [5000, '💸', '五千円の主役登場', '1件で5,000円以上の支出を記録する。'],
+      [10000, '🎩', '一万円札の見送り式', '1件で1万円以上の支出を記録する。'],
+      [30000, '🚀', '三万円の打ち上げ観測', '1件で3万円以上の支出を記録する。'],
+      [50000, '🐋', '五万円のクジラを目撃', '1件で5万円以上の支出を記録する。'],
+      [100000, '🌠', '十万円の流れ星', '1件で10万円以上の支出を記録する。ちゃんと記録したのがえらい。']
+    ]);
+    series('rec_small', '記録', 'smallEntries', [
+      [1, '🪙', '小銭も立派な記録', '500円以下の支出を1件記録する。'],
+      [30, '🫘', '小さな支出の観察名人', '500円以下の支出を30件記録する。']
+    ]);
+
+    // ===== 継続（13件） =====
+    series('streak', '継続', 'bestStreak', [
+      [2, '🔗', '記録チェイン2', '2日連続で記録する。'],
+      [4, '⛓️', '四日目の壁を突破', '4日連続で記録する。三日坊主は過去の話。'],
+      [5, '🖐️', '連続記録ハイタッチ', '5日連続で記録する。'],
+      [6, '🎲', '六連続の出目', '6日連続で記録する。'],
+      [10, '🔥', '十日燃焼中', '10日連続で記録する。'],
+      [14, '🚴', '二週間ノンストップ', '14日連続で記録する。'],
+      [21, '🧗', '三週間の登り屋', '21日連続で記録する。習慣化ゾーン突入。'],
+      [30, '🌙', '三十日皆勤の月', '30日連続で記録する。'],
+      [60, '⚙️', '六十日式・自動記録人間', '60日連続で記録する。'],
+      [75, '🛰️', '七十五日軌道維持', '75日連続で記録する。'],
+      [100, '💯', '百日連続の求道者', '100日連続で記録する。'],
+      [200, '🗼', '二百日タワー建設', '200日連続で記録する。'],
+      [365, '🌏', '一年無休の生活記録家', '365日連続で記録する。殿堂入り。']
+    ]);
+
+    // ===== 支払い（42件） =====
+    series('pay_cat_month', '支払い', 'categoryCount', [
+      [3, '🎨', '三色仕分けデビュー', '対象月に3カテゴリ以上使う。'],
+      [8, '🌈', '八色の支出パレット', '対象月に8カテゴリ以上使う。'],
+      [10, '🧩', '十種盛り生活', '対象月に10カテゴリ以上使う。'],
+      [15, '🎡', '全部乗せカテゴリ観覧車', '対象月に15カテゴリ以上使う。']
+    ]);
+    series('pay_cat_total', '支払い', 'totalCategoryCount', [
+      [5, '🗺️', '分類の開拓者', '累計5カテゴリを使用する。'],
+      [10, '🧭', 'カテゴリ探検隊長', '累計10カテゴリを使用する。'],
+      [15, '🌐', '分類ワールドツアー', '累計15カテゴリを使用する。'],
+      [18, '🎯', 'ほぼ全分類コンプ勢', '累計18カテゴリを使用する。'],
+      [21, '🏆', 'カテゴリ完全制覇', '累計21カテゴリを使用する。']
+    ]);
+    series('pay_store_month', '支払い', 'storeCount', [
+      [3, '🏪', '今月の三軒はしご', '対象月に3店舗以上記録する。'],
+      [10, '🛣️', '十店舗巡礼ルート', '対象月に10店舗以上記録する。'],
+      [15, '🚌', '買い物路線バス化', '対象月に15店舗以上記録する。']
+    ]);
+    series('pay_store_total', '支払い', 'totalStoreCount', [
+      [5, '📍', '生活圏マッピング開始', '累計5店舗を登録する。'],
+      [20, '🗾', '二十店舗の商圏図', '累計20店舗を登録する。'],
+      [30, '🏙️', '三十店舗の常連候補', '累計30店舗を登録する。'],
+      [50, '🌆', '五十店舗の街歩き記録', '累計50店舗を登録する。'],
+      [75, '🚉', '七十五店舗の乗換案内', '累計75店舗を登録する。'],
+      [100, '🌍', '百店舗の買い物大陸', '累計100店舗を登録する。']
+    ]);
+    series('pay_method_month', '支払い', 'methodCount', [
+      [2, '⚔️', '支払い二刀流', '対象月に2種類以上の支払方法を使う。'],
+      [4, '🪄', '支払い四天王使い', '対象月に4種類以上の支払方法を使う。']
+    ]);
+    series('pay_cash', '支払い', 'cashEntries', [
+      [1, '👛', '現金は裏切らない', '現金の支出を1件記録する。'],
+      [10, '💵', 'お札と小銭の記録係', '現金の支出を10件記録する。'],
+      [50, '🧧', '現金派の意地50連', '現金の支出を50件記録する。'],
+      [100, '🏧', '現金百件の重み', '現金の支出を100件記録する。']
+    ]);
+    series('pay_card', '支払い', 'cardEntries', [
+      [1, '💳', 'カードの初太刀', 'カードの支出を1件記録する。'],
+      [10, '🗡️', '十枚斬りのカード使い', 'カードの支出を10件記録する。'],
+      [50, '🛰️', '明細と和解した者', 'カードの支出を50件記録する。'],
+      [100, '🃏', 'カード百人組手', 'カードの支出を100件記録する。'],
+      [300, '♠️', '請求書マスター', 'カードの支出を300件記録する。']
+    ]);
+    series('pay_emoney', '支払い', 'emoneyEntries', [
+      [1, '📱', 'ピッと鳴らした記念日', '電子マネーの支出を1件記録する。'],
+      [10, '⚡', 'タッチ決済の風', '電子マネーの支出を10件記録する。'],
+      [50, '🌩️', '電子マネー雷神', '電子マネーの支出を50件記録する。'],
+      [100, '🔋', 'キャッシュレス百人力', '電子マネーの支出を100件記録する。']
+    ]);
+    series('pay_debit', '支払い', 'debitEntries', [
+      [1, '🏦', '引き落とし初観測', '口座引き落としの支出を1件記録する。'],
+      [10, '📮', '静かに消える固定費番人', '口座引き落としの支出を10件記録する。'],
+      [25, '🕵️', '口座の抜け道調査員', '口座引き落としの支出を25件記録する。'],
+      [50, '🧾', '固定費五十連の管理人', '口座引き落としの支出を50件記録する。']
+    ]);
+    series('pay_repeat_store', '支払い', 'maxStoreVisits', [
+      [3, '🍞', '三回通えばもう常連', '同じお店を3回利用する。'],
+      [10, '☕', '店員さんに顔を覚えられた頃', '同じお店を10回利用する。'],
+      [20, '🎫', '常連カード（心の中）', '同じお店を20回利用する。'],
+      [50, '🪑', 'マイ指定席がある店', '同じお店を50回利用する。'],
+      [100, '🏠', '第二の実家認定', '同じお店を100回利用する。']
+    ]);
+
+    // ===== 予算（28件） =====
+    series('budget_assigned', '予算', 'budgetAssignedEntries', [
+      [1, '🎯', '予算枠に初着弾', '支出を予算枠へ1件割り当てる。'],
+      [10, '🛡️', '予算防衛軍・二等兵', '予算枠への割り当てを10件にする。'],
+      [50, '🪖', '予算防衛軍・軍曹', '予算枠への割り当てを50件にする。'],
+      [100, '🎖️', '予算防衛軍・少尉', '予算枠への割り当てを100件にする。'],
+      [200, '🏅', '予算防衛軍・大佐', '予算枠への割り当てを200件にする。'],
+      [500, '🌟', '予算防衛軍・元帥', '予算枠への割り当てを500件にする。']
+    ]);
+    series('budget_kept', '予算', 'keptBudgetCount', [
+      [1, '✅', '予算の約束、初勝利', '対象月に予算内で収めた枠（使用あり）が1つある。'],
+      [2, '🤝', '二枠同時防衛成功', '対象月に予算内の枠が2つある。'],
+      [3, '🧱', '三方向の財布ガード', '対象月に予算内の枠が3つある。'],
+      [5, '🏯', '予算五重の守り', '対象月に予算内の枠が5つある。']
+    ]);
+    series('budget_safe', '予算', 'safeBudgetCount', [
+      [2, '🟢', '余裕の二枠運転', '対象月に70%未満の枠が2つある。'],
+      [3, '🌿', '省エネ家計モード', '対象月に70%未満の枠が3つある。']
+    ]);
+    series('budget_over_multi', '予算', 'overBudgetCount', [
+      [2, '🚒', '赤字警報、鳴ってます', '対象月に予算オーバーの枠が2つある。来月の作戦席へどうぞ。'],
+      [3, '🎆', '予算花火大会', '対象月に予算オーバーの枠が3つある。盛大に打ち上がった。笑って次へ。']
+    ]);
+    series('budget_exact', '予算', 'exactBudgetCount', [
+      [1, '🎯', '予算ぴったり賞', '使用額が月予算とぴったり一致する枠を作る。神業。']
+    ]);
+    series('budget_unassigned_zero', '予算', 'unassignedZeroMonth', [
+      [1, '🧹', '未割当ゼロの美学', '対象月の支出をすべて予算枠へ割り当てる。']
+    ]);
+    series('budget_allowance_kept', '予算', 'allowanceKeptMonth', [
+      [1, '💼', 'お小遣い聖域防衛', '対象月のお小遣い予算を守る。']
+    ]);
+    series('budget_allowance_entries', '予算', 'allowanceEntries', [
+      [10, '🍬', 'お小遣い履歴コレクター', 'お小遣いからの支出を10件記録する。'],
+      [50, '🎁', '自分予算の運用者', 'お小遣いからの支出を50件記録する。'],
+      [100, '🧸', 'お小遣い百件の自由人', 'お小遣いからの支出を100件記録する。']
+    ]);
+    series('budget_items', '予算', 'budgetCount', [
+      [3, '📊', '三本柱の予算設計', '予算項目を3つ登録する。'],
+      [5, '🏗️', '五枠の家計設計士', '予算項目を5つ登録する。'],
+      [10, '🏢', '予算十枠の総合庁舎', '予算項目を10個登録する。']
+    ]);
+    series('budget_food_kept', '予算', 'foodKeptMonth', [
+      [1, '🍚', '食費国境警備隊', '対象月の食費予算を守る。']
+    ]);
+    series('budget_sake_kept', '予算', 'sakeKeptMonth', [
+      [1, '🥃', '酒代は嘘をつかない', '対象月の酒代予算を守る。']
+    ]);
+    series('budget_game_kept', '予算', 'gameKeptMonth', [
+      [1, '🎮', '課金ボタンから指を離した者', '対象月のゲーム代予算を守る。']
+    ]);
+    series('budget_fun_kept', '予算', 'funKeptMonth', [
+      [1, '🎪', '娯楽費の手綱さばき', '対象月の娯楽費予算を守る。']
+    ]);
+    series('budget_near_multi', '予算', 'nearBudgetCount', [
+      [2, '🟡', 'ギリギリ二枠の綱渡り', '対象月に90%台の枠が2つある。攻めるねえ。']
+    ]);
+
+    // ===== レシート（20件） =====
+    series('split_groups', 'レシート', 'splitReceiptGroups', [
+      [3, '✂️', '三枚おろしの仕分け人', 'レシート分割入力を3回使う。'],
+      [5, '🔪', 'レシート解体新書', 'レシート分割入力を5回使う。'],
+      [10, '🧵', '十連仕分けの裁縫師', 'レシート分割入力を10回使う。'],
+      [20, '🪡', '分割マイスター20', 'レシート分割入力を20回使う。'],
+      [50, '🎼', '仕分け五十番勝負', 'レシート分割入力を50回使う。'],
+      [100, '🏆', 'レシート分解百段', 'レシート分割入力を100回使う。']
+    ]);
+    series('split_lines_max', 'レシート', 'maxSplitLines', [
+      [3, '🍱', '三分割弁当方式', '1枚のレシートを3分割以上で登録する。'],
+      [4, '🍣', '四貫盛り仕分け', '1枚のレシートを4分割以上で登録する。'],
+      [5, '🎻', '五重奏の内訳', '1枚のレシートを5分割以上で登録する。'],
+      [6, '🎹', '六和音レシート', '1枚のレシートを6分割以上で登録する。']
+    ]);
+    series('split_matched', 'レシート', 'matchedSplitGroups', [
+      [3, '✅', '照合ヨシ三連発', 'レシート合計と内訳合計が一致した分割を3回保存する。'],
+      [5, '📏', '誤差ゼロ職人', '合計一致の分割を5回保存する。'],
+      [10, '⚖️', '帳尻の魔術師', '合計一致の分割を10回保存する。'],
+      [25, '🔬', '一円も逃さぬ検算室', '合計一致の分割を25回保存する。']
+    ]);
+    series('split_food_sake', 'レシート', 'splitFoodSakeGroups', [
+      [1, '🍶', '食費と酒代の平和的分離', '1枚の分割入力で食費と酒代を分ける。']
+    ]);
+    series('split_food_daily', 'レシート', 'splitFoodDailyGroups', [
+      [1, '🧻', '日用品と食費の国境線', '1枚の分割入力で日用品費と食費を分ける。']
+    ]);
+    series('split_entries', 'レシート', 'splitEntries', [
+      [5, '🧩', '内訳ピース5個', '分割由来の支出を5件登録する。'],
+      [10, '🎨', '内訳モザイク10', '分割由来の支出を10件登録する。'],
+      [25, '🏗️', '内訳の組み立て工', '分割由来の支出を25件登録する。'],
+      [100, '🏛️', '内訳百件の大聖堂', '分割由来の支出を100件登録する。']
+    ]);
+
+    // ===== CSV取込（28件） =====
+    series('csv_entries', 'CSV取込', 'csvEntries', [
+      [1, '📥', '明細取込、初荷', 'CSV取込から支出を1件登録する。'],
+      [10, '🚚', '明細トラック到着', 'CSV由来の支出を10件登録する。'],
+      [50, '🏭', '取込工場、稼働中', 'CSV由来の支出を50件登録する。'],
+      [100, '🛳️', '明細百件の入港', 'CSV由来の支出を100件登録する。'],
+      [300, '✈️', '取込エアライン就航', 'CSV由来の支出を300件登録する。'],
+      [500, '🚄', '明細新幹線、全線開通', 'CSV由来の支出を500件登録する。']
+    ]);
+    series('csv_paypay_trans', 'CSV取込', 'paypayTransactionsEntries', [
+      [1, '🅿️', 'PayPay履歴、初連携', 'PayPay利用履歴から支出を1件登録する。'],
+      [10, '📲', 'PayPay履歴の常連', 'PayPay利用履歴から10件登録する。'],
+      [100, '🌐', 'PayPay百件の航路', 'PayPay利用履歴から100件登録する。']
+    ]);
+    series('csv_paypay_card', 'CSV取込', 'paypayCardEntries', [
+      [1, '💳', 'PayPayカード初取込', 'PayPayカード明細から支出を1件登録する。'],
+      [10, '🗂️', 'PayPayカード明細番', 'PayPayカード明細から10件登録する。'],
+      [50, '📚', 'PayPayカード五十件史', 'PayPayカード明細から50件登録する。']
+    ]);
+    series('csv_rakuten_card', 'CSV取込', 'rakutenCardEntries', [
+      [1, '🛒', '楽天カード初上陸', '楽天カード明細から支出を1件登録する。'],
+      [10, '🎪', '楽天明細サーカス', '楽天カード明細から10件登録する。'],
+      [50, '🏟️', '楽天カード五十番勝負', '楽天カード明細から50件登録する。']
+    ]);
+    series('csv_ucs_card', 'CSV取込', 'ucsCardEntries', [
+      [1, '🧾', 'UCSカード初取込', 'UCSカード明細から支出を1件登録する。'],
+      [10, '🗄️', 'UCS明細の整理棚', 'UCSカード明細から10件登録する。']
+    ]);
+    series('csv_kabu_card', 'CSV取込', 'kabuCardEntries', [
+      [1, '📈', 'KABU＆カード初取込', 'KABU＆カード明細から支出を1件登録する。'],
+      [10, '💹', 'KABU＆明細の株主総会', 'KABU＆カード明細から10件登録する。']
+    ]);
+    series('csv_rules', 'CSV取込', 'importRuleCount', [
+      [1, '🏷️', '店名ルール第一号', '店名ルールを1件登録する。'],
+      [3, '🔖', '三枚のルール札', '店名ルールを3件登録する。'],
+      [5, '🗃️', 'ルール五本の矢', '店名ルールを5件登録する。'],
+      [10, '🧠', '自動仕分けの学習係', '店名ルールを10件登録する。'],
+      [20, '🤖', '半自動家計簿の完成', '店名ルールを20件登録する。'],
+      [50, '🛸', '全自動仕分け艦隊', '店名ルールを50件登録する。']
+    ]);
+    series('csv_sources', 'CSV取込', 'csvSourceTypeCount', [
+      [2, '🔀', '二社取込の窓口', '2種類の取込元からCSVを登録する。'],
+      [3, '🎛️', '三社統合ダッシュボード', '3種類の取込元からCSVを登録する。'],
+      [5, '🌌', '全取込元コンプリート', '5種類すべての取込元からCSVを登録する。']
+    ]);
+
+    // ===== 節約（28件） =====
+    series('pretend_count', '節約', 'pretendCount', [
+      [3, '🧊', '我慢の三段活用', '使ったつもり貯金を3件記録する。'],
+      [10, '🧱', '誘惑ブロック十連', '使ったつもり貯金を10件記録する。'],
+      [25, '🛑', '買わない力・二十五', '使ったつもり貯金を25件記録する。'],
+      [50, '🏔️', '我慢の山、五合目', '使ったつもり貯金を50件記録する。'],
+      [100, '🗻', '我慢百景', '使ったつもり貯金を100件記録する。']
+    ]);
+    series('pretend_month', '節約', 'pretendMonthTotal', [
+      [1000, '🪙', '今月の小さな防波堤', '対象月のつもり貯金が1,000円を超える。'],
+      [10000, '🌊', '今月の一万円防波堤', '対象月のつもり貯金が10,000円を超える。'],
+      [20000, '🏖️', '今月の二万円要塞', '対象月のつもり貯金が20,000円を超える。']
+    ]);
+    series('pretend_lifetime', '節約', 'pretendLifetimeTotal', [
+      [1000, '🌱', '我慢の芽が出た', '累計のつもり貯金が1,000円を超える。'],
+      [10000, '🌿', '我慢の若木一万円', '累計のつもり貯金が10,000円を超える。'],
+      [50000, '🌳', '我慢の大樹五万円', '累計のつもり貯金が50,000円を超える。'],
+      [100000, '🏆', '我慢の殿堂十万円', '累計のつもり貯金が100,000円を超える。'],
+      [300000, '💎', '我慢のダイヤ三十万', '累計のつもり貯金が300,000円を超える。'],
+      [500000, '👑', '我慢王の戴冠式', '累計のつもり貯金が500,000円を超える。']
+    ]);
+    series('pretend_whisky_more', '節約', 'pretendWhiskyCount', [
+      [3, '🥃', '琥珀色スルー三連勝', '酒系の支出を3回踏みとどまる。'],
+      [10, '🍾', '酒棚の前の鉄人', '酒系の支出を10回踏みとどまる。']
+    ]);
+    series('pretend_game_more', '節約', 'pretendGameCount', [
+      [3, '🎮', '課金寸止め三連コンボ', 'ゲーム系の支出を3回踏みとどまる。'],
+      [10, '🕹️', 'ガチャ欲を制した者', 'ゲーム系の支出を10回踏みとどまる。']
+    ]);
+    series('pretend_eatout', '節約', 'pretendEatOutCount', [
+      [1, '🍜', '外食スルー初勝利', '外食を1回踏みとどまる。'],
+      [3, '🍱', '自炊への三歩', '外食を3回踏みとどまる。'],
+      [5, '🍳', '外食誘惑ファイブブロック', '外食を5回踏みとどまる。']
+    ]);
+    series('pretend_amazon', '節約', 'pretendAmazonCount', [
+      [1, '📦', 'カートで踏みとどまった者', 'Amazon系の買い物を1回踏みとどまる。'],
+      [3, '🚪', '段ボール召喚を三回中断', 'Amazon系の買い物を3回踏みとどまる。'],
+      [5, '🧿', 'ポチり欲の封印師', 'Amazon系の買い物を5回踏みとどまる。']
+    ]);
+    series('pretend_use_more', '節約', 'pretendUseCount', [
+      [3, '🌈', '我慢を三度、幸せに変換', '価値ある使い道を3件記録する。'],
+      [10, '🎁', '我慢還元マイスター', '価値ある使い道を10件記録する。']
+    ]);
+    series('pretend_used_total', '節約', 'pretendUsedTotal', [
+      [5000, '💐', '五千円分の自分ご褒美', '価値ある使い道の合計が5,000円を超える。'],
+      [30000, '🎉', '我慢の三万円凱旋', '価値ある使い道の合計が30,000円を超える。']
+    ]);
+
+    // ===== 目標・貯金（17件） =====
+    series('goal_count', '目標・貯金', 'goalCount', [
+      [2, '🚩', '二本目の旗', '目標を2件登録する。'],
+      [3, '🎌', '三大目標時代', '目標を3件登録する。'],
+      [5, '🗺️', '目標五連峰の登山計画', '目標を5件登録する。']
+    ]);
+    series('saving_count', '目標・貯金', 'savingCount', [
+      [2, '🏦', '封筒か銀行か、二刀流', '目的別貯金を2件登録する。'],
+      [3, '🐖', '三匹の貯金箱', '目的別貯金を3件登録する。'],
+      [5, '🏰', '五つの金庫番', '目的別貯金を5件登録する。']
+    ]);
+    series('linked_saving_count', '目標・貯金', 'linkedSavingCount', [
+      [2, '🔗', '連結二両編成', '目標と貯金の連結を2件にする。'],
+      [3, '🚃', '連結三両で出発進行', '目標と貯金の連結を3件にする。']
+    ]);
+    series('goal_progress', '目標・貯金', 'maxGoalProgress', [
+      [25, '🥉', '目標の四分の一地点', 'いずれかの目標が25%に到達する。'],
+      [50, '🥈', '折り返しの給水所', 'いずれかの目標が50%に到達する。'],
+      [75, '🥇', 'ゴールテープが見えた', 'いずれかの目標が75%に到達する。']
+    ]);
+    series('goal_achieved_count', '目標・貯金', 'goalAchievedCount', [
+      [2, '🎊', '二冠達成', '目標を2件達成する。'],
+      [3, '🏅', '三冠王の家計', '目標を3件達成する。']
+    ]);
+    series('saving_balance', '目標・貯金', 'savingsBalanceTotal', [
+      [10000, '💴', '貯金残高一万円の芽', '目的別貯金の合計残高が10,000円になる。'],
+      [100000, '💰', '十万円の秘密基地', '目的別貯金の合計残高が100,000円になる。'],
+      [300000, '🏛️', '三十万円の金庫室', '目的別貯金の合計残高が300,000円になる。'],
+      [1000000, '🌕', '百万円の月面基地', '目的別貯金の合計残高が1,000,000円になる。']
+    ]);
+
+    // ===== 趣味・生活（38件） =====
+    series('life_sake', '趣味・生活', 'sakeEntries', [
+      [5, '🍺', '酒代の定点観測員', '酒・ウイスキー系の支出を5件記録する。'],
+      [25, '🥂', '晩酌クロニクル25', '酒・ウイスキー系の支出を25件記録する。'],
+      [50, '🍸', '酒棚の司書', '酒・ウイスキー系の支出を50件記録する。'],
+      [100, '🛢️', '樽単位の記録者', '酒・ウイスキー系の支出を100件記録する。ちゃんと記録してるのがえらい。']
+    ]);
+    series('life_game', '趣味・生活', 'gameEntries', [
+      [5, '🎮', '積みゲー台帳・第一巻', 'ゲーム系の支出を5件記録する。'],
+      [25, '🕹️', 'セール戦線従軍記録', 'ゲーム系の支出を25件記録する。'],
+      [50, '👾', 'ゲーム出納帳の主', 'ゲーム系の支出を50件記録する。'],
+      [100, '🏆', '課金史百年の計', 'ゲーム系の支出を100件記録する。']
+    ]);
+    series('life_subs', '趣味・生活', 'subsEntries', [
+      [1, '📺', 'サブスク初計上', '映画・サブスクの支出を1件記録する。'],
+      [10, '🎬', '月額の住人', '映画・サブスクの支出を10件記録する。'],
+      [25, '🍿', 'サブスク映画祭皆勤賞', '映画・サブスクの支出を25件記録する。']
+    ]);
+    series('life_eatout', '趣味・生活', 'eatOutEntries', [
+      [1, '🍽️', '外食記録デビュー', '外食の支出を1件記録する。'],
+      [10, '🍜', '外食スタンプ10個', '外食の支出を10件記録する。'],
+      [25, '🍛', '食べ歩き年鑑編集部', '外食の支出を25件記録する。'],
+      [50, '🍣', '外食五十選の審査員', '外食の支出を50件記録する。']
+    ]);
+    series('life_travel', '趣味・生活', 'travelEntries', [
+      [1, '🧳', '旅の出費、初記帳', '旅行費の支出を1件記録する。'],
+      [3, '🗾', '三度目の旅支度', '旅行費の支出を3件記録する。']
+    ]);
+    series('life_amazon', '趣味・生活', 'amazonEntries', [
+      [1, '📦', 'Amazonの段ボール召喚士', 'Amazonでの支出を1件記録する。'],
+      [10, '🚪', '玄関前の定期便', 'Amazonでの支出を10件記録する。'],
+      [25, '🏗️', '段ボールタワー建設中', 'Amazonでの支出を25件記録する。'],
+      [50, '🛸', 'プライム宇宙軍', 'Amazonでの支出を50件記録する。'],
+      [100, '🏭', '物流拠点は我が家', 'Amazonでの支出を100件記録する。']
+    ]);
+    series('life_konbini', '趣味・生活', 'konbiniEntries', [
+      [1, '🏪', 'コンビニ記録一号店', 'コンビニでの支出を1件記録する。'],
+      [10, '🍙', 'コンビニ四天王と顔なじみ', 'コンビニでの支出を10件記録する。'],
+      [50, '☕', '全時間帯コンビニ検定', 'コンビニでの支出を50件記録する。'],
+      [100, '🌃', '深夜も昼もコンビニ博士', 'コンビニでの支出を100件記録する。']
+    ]);
+    series('life_medical', '趣味・生活', 'medicalEntries', [
+      [1, '🏥', '健康メンテ記録開始', '医療費の支出を1件記録する。体が資本。']
+    ]);
+    series('life_car', '趣味・生活', 'carEntries', [
+      [1, '⛽', '給油ログ、点火', '車・ガソリン系の支出を1件記録する。'],
+      [10, '🚗', '愛車の家計日誌', '車・ガソリン系の支出を10件記録する。'],
+      [25, '🛞', '走行距離より記録距離', '車・ガソリン系の支出を25件記録する。']
+    ]);
+    series('life_cat', '趣味・生活', 'catEntries', [
+      [1, '🐱', '猫様への上納、初記録', '猫関連の支出を1件記録する。'],
+      [10, '😺', '猫様経済圏の住人', '猫関連の支出を10件記録する。']
+    ]);
+    series('life_trial', '趣味・生活', 'trialEntries', [
+      [1, '🛒', 'トライアル初陣', 'トライアルでの支出を1件記録する。'],
+      [10, '🧺', 'トライアル常連組', 'トライアルでの支出を10件記録する。'],
+      [50, '🏟️', 'トライアル五十番勝負', 'トライアルでの支出を50件記録する。']
+    ]);
+    series('life_rakuten', '趣味・生活', 'rakutenEntries', [
+      [1, '🛍️', '楽天経済圏に入国', '楽天での支出を1件記録する。'],
+      [10, '🎪', 'ポイント星人の買い物録', '楽天での支出を10件記録する。'],
+      [25, '🌟', '楽天二十五連星', '楽天での支出を25件記録する。']
+    ]);
+
+    return defs;
+  }
+
+  const achievementDefinitions = [
+    ...legacyAchievementDefinitions.map((def) => ({ ...def, category: legacyAchievementCategories[def.id] || 'その他' })),
+    ...buildExtendedAchievementDefinitions()
+  ];
+
+  // 実績定義の整合性チェック（ID重複・件数・目標値0を検出）
+  (() => {
+    const seen = new Set();
+    achievementDefinitions.forEach((def) => {
+      if (seen.has(def.id)) console.error(`実績IDが重複しています: ${def.id}`);
+      seen.add(def.id);
+      if (!(Number(def.target) > 0)) console.error(`実績の目標値が不正です: ${def.id}`);
+    });
+    if (achievementDefinitions.length !== 300) console.error(`実績定義が300件ではありません: ${achievementDefinitions.length}件`);
+  })();
+
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   let state = loadState();
   let toastTimer = null;
   let pendingImportRows = [];
+  let paymentsStoreShowAll = false;
 
   const els = {
     tabs: $$('.tab'), panels: $$('.panel'), toast: $('#toast'),
@@ -101,13 +568,15 @@
     goalForm: $('#goalForm'), goalIdInput: $('#goalIdInput'), goalTitleInput: $('#goalTitleInput'), goalTargetInput: $('#goalTargetInput'), goalManualInput: $('#goalManualInput'), goalDueInput: $('#goalDueInput'), goalTypeInput: $('#goalTypeInput'), goalMemoInput: $('#goalMemoInput'), goalSavingsInputList: $('#goalSavingsInputList'), goalSaveButton: $('#goalSaveButton'), goalClearButton: $('#goalClearButton'), goalList: $('#goalList'), goalsTargetTotal: $('#goalsTargetTotal'), goalsCurrentTotal: $('#goalsCurrentTotal'), goalsRemainingTotal: $('#goalsRemainingTotal'), goalsAchievedCount: $('#goalsAchievedCount'),
     savingForm: $('#savingForm'), savingIdInput: $('#savingIdInput'), savingNameInput: $('#savingNameInput'), savingTypeInput: $('#savingTypeInput'), savingBalanceInput: $('#savingBalanceInput'), savingTargetInput: $('#savingTargetInput'), savingGoalInput: $('#savingGoalInput'), savingMemoInput: $('#savingMemoInput'), savingSaveButton: $('#savingSaveButton'), savingClearButton: $('#savingClearButton'), savingList: $('#savingList'), envelopeSavingTotal: $('#envelopeSavingTotal'), bankSavingTotal: $('#bankSavingTotal'), savingTotal: $('#savingTotal'), linkedSavingCount: $('#linkedSavingCount'),
     pretendMonthInput: $('#pretendMonthInput'), pretendMonthTotal: $('#pretendMonthTotal'), pretendYearTotal: $('#pretendYearTotal'), pretendLifetimeTotal: $('#pretendLifetimeTotal'), pretendUsedTotal: $('#pretendUsedTotal'), pretendRemainingTotal: $('#pretendRemainingTotal'), pretendMeterFill: $('#pretendMeterFill'), pretendForm: $('#pretendForm'), pretendIdInput: $('#pretendIdInput'), pretendDateInput: $('#pretendDateInput'), pretendAmountInput: $('#pretendAmountInput'), pretendCategoryInput: $('#pretendCategoryInput'), pretendThingInput: $('#pretendThingInput'), pretendPlanInput: $('#pretendPlanInput'), pretendMemoInput: $('#pretendMemoInput'), pretendSaveButton: $('#pretendSaveButton'), pretendClearButton: $('#pretendClearButton'), pretendUseForm: $('#pretendUseForm'), pretendUseIdInput: $('#pretendUseIdInput'), pretendUseDateInput: $('#pretendUseDateInput'), pretendUseAmountInput: $('#pretendUseAmountInput'), pretendUsePurposeInput: $('#pretendUsePurposeInput'), pretendUseMemoInput: $('#pretendUseMemoInput'), pretendUseSaveButton: $('#pretendUseSaveButton'), pretendUseClearButton: $('#pretendUseClearButton'), pretendRankingList: $('#pretendRankingList'), pretendUseList: $('#pretendUseList'), pretendHistoryCount: $('#pretendHistoryCount'), pretendHistoryList: $('#pretendHistoryList'),
-    achievementMonthInput: $('#achievementMonthInput'), achievementUnlockedCount: $('#achievementUnlockedCount'), achievementRecordDays: $('#achievementRecordDays'), achievementStreak: $('#achievementStreak'), achievementRank: $('#achievementRank'), nextAchievementList: $('#nextAchievementList'), achievementList: $('#achievementList'),
+    achievementMonthInput: $('#achievementMonthInput'), achievementCategoryFilter: $('#achievementCategoryFilter'), achievementStateFilter: $('#achievementStateFilter'), achievementFilterCount: $('#achievementFilterCount'), achievementUnlockedCount: $('#achievementUnlockedCount'), achievementRecordDays: $('#achievementRecordDays'), achievementStreak: $('#achievementStreak'), achievementRank: $('#achievementRank'), nextAchievementList: $('#nextAchievementList'), achievementList: $('#achievementList'),
     statementCsvInput: $('#statementCsvInput'), importPhaseInput: $('#importPhaseInput'), importFileSummary: $('#importFileSummary'), importDetectedCount: $('#importDetectedCount'), importRegisterCount: $('#importRegisterCount'), importReviewCount: $('#importReviewCount'), importExcludedCount: $('#importExcludedCount'), importRowList: $('#importRowList'), importRowsEmpty: $('#importRowsEmpty'), importSelectedButton: $('#importSelectedButton'), clearImportButton: $('#clearImportButton'), selectRegisterableButton: $('#selectRegisterableButton'), excludeAllImportButton: $('#excludeAllImportButton'), importRuleCount: $('#importRuleCount'), openImportRulesButton: $('#openImportRulesButton'), resetImportRulesButton: $('#resetImportRulesButton'),
     importRuleManagerCard: $('#importRuleManagerCard'), importRuleForm: $('#importRuleForm'), importRuleIdInput: $('#importRuleIdInput'), importRuleSourceInput: $('#importRuleSourceInput'), importRuleMerchantInput: $('#importRuleMerchantInput'), importRuleStoreInput: $('#importRuleStoreInput'), importRuleCategoryInput: $('#importRuleCategoryInput'), importRuleBudgetInput: $('#importRuleBudgetInput'), importRulePaymentInput: $('#importRulePaymentInput'), importRuleActionInput: $('#importRuleActionInput'), importRuleSaveButton: $('#importRuleSaveButton'), importRuleClearButton: $('#importRuleClearButton'), importRuleSearchInput: $('#importRuleSearchInput'), importRuleManagerCount: $('#importRuleManagerCount'), importRuleListEmpty: $('#importRuleListEmpty'), importRuleList: $('#importRuleList'),
     exportBackupCsvButton: $('#exportBackupCsvButton'), importBackupCsvInput: $('#importBackupCsvInput'),
     categoryForm: $('#categoryForm'), categoryIdInput: $('#categoryIdInput'), categoryNameInput: $('#categoryNameInput'), categorySaveButton: $('#categorySaveButton'), categoryClearButton: $('#categoryClearButton'), categoryList: $('#categoryList'),
     storeForm: $('#storeForm'), storeIdInput: $('#storeIdInput'), storeNameInput: $('#storeNameInput'), storeSaveButton: $('#storeSaveButton'), storeClearButton: $('#storeClearButton'), storeList: $('#storeList'),
     budgetForm: $('#budgetForm'), budgetIdInput: $('#budgetIdInput'), budgetNameInput: $('#budgetNameInput'), budgetLimitInput: $('#budgetLimitInput'), budgetEnabledInput: $('#budgetEnabledInput'), budgetSaveButton: $('#budgetSaveButton'), budgetClearButton: $('#budgetClearButton'), budgetList: $('#budgetList'),
+    unassignedExpensesButton: $('#unassignedExpensesButton'),
+    expenseListDialog: $('#expenseListDialog'), expenseDialogTitle: $('#expenseDialogTitle'), expenseDialogSubtitle: $('#expenseDialogSubtitle'), expenseDialogStats: $('#expenseDialogStats'), expenseDialogNote: $('#expenseDialogNote'), expenseDialogList: $('#expenseDialogList'), expenseDialogCloseButton: $('#expenseDialogCloseButton'),
     resetAllButton: $('#resetAllButton')
   };
 
@@ -168,6 +637,19 @@
     els.pretendUseClearButton.addEventListener('click', resetPretendUseForm);
     els.pretendMonthInput.addEventListener('change', renderPretendSavings);
     els.achievementMonthInput.addEventListener('change', renderAchievements);
+    [els.achievementCategoryFilter, els.achievementStateFilter].forEach((input) => input?.addEventListener('change', renderAchievements));
+
+    // v2.6.0 予算タブ・月の支払いタブの支出一覧ダイアログ
+    els.unassignedExpensesButton?.addEventListener('click', openUnassignedExpenseList);
+    els.budgetCardList.addEventListener('click', handleBudgetCardListClick);
+    els.budgetCardList.addEventListener('keydown', handleBudgetCardListKeydown);
+    [els.paymentsMethodBreakdown, els.paymentsCategoryBreakdown, els.paymentsStoreBreakdown].forEach((target) => target?.addEventListener('click', handlePaymentBreakdownClick));
+    els.expenseDialogCloseButton?.addEventListener('click', closeExpenseListDialog);
+    els.expenseDialogList?.addEventListener('click', handleDialogListInteraction);
+    els.expenseDialogList?.addEventListener('keydown', handleDialogListKeydown);
+    els.expenseListDialog?.addEventListener('click', (event) => { if (event.target === els.expenseListDialog) closeExpenseListDialog(); });
+    els.expenseListDialog?.addEventListener('cancel', (event) => { event.preventDefault(); closeExpenseListDialog(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && isDialogOpen()) { event.preventDefault(); closeExpenseListDialog(); } });
 
     els.statementCsvInput.addEventListener('change', handleStatementFiles);
     els.importPhaseInput.addEventListener('change', () => { pendingImportRows.forEach((row) => { row.phase = els.importPhaseInput.value; }); renderImportRows(); });
@@ -1199,19 +1681,28 @@
     els.paymentsMonthLabel.textContent = `${formatMonthLabel(month)}${phase ? `・${phase}` : ''}`;
     renderPaymentBreakdown(els.paymentsMethodBreakdown, items, 'paymentMethod');
     renderPaymentBreakdown(els.paymentsCategoryBreakdown, items, 'categoryName');
-    renderPaymentBreakdown(els.paymentsStoreBreakdown, items, 'storeName', 8);
+    renderPaymentBreakdown(els.paymentsStoreBreakdown, items, 'storeName', paymentsStoreShowAll ? Infinity : 8);
     renderPaymentDayList(items);
   }
 
   function renderPaymentBreakdown(target, items, key, limit = 12) {
+    // v2.6.0：集計行をタップ可能なボタンにし、該当する支出だけの一覧表示へつなげる
     const groups = groupSum(items, key);
-    const rows = Object.entries(groups).sort((a, b) => b[1] - a[1]).slice(0, limit);
+    const entries = Object.entries(groups).sort((a, b) => b[1] - a[1]);
+    const rows = Number.isFinite(limit) ? entries.slice(0, limit) : entries;
     const total = sum(items.map((item) => item.amount));
-    if (!rows.length) { target.innerHTML = '<p class="hint">この月のデータはありません。</p>'; return; }
-    target.innerHTML = rows.map(([label, amount]) => {
+    if (!entries.length) { target.innerHTML = '<p class="hint">この月のデータはありません。</p>'; return; }
+    const kindLabel = paymentBreakdownKinds[key] || '';
+    let html = rows.map(([label, amount]) => {
       const percent = total ? Math.round(amount / total * 100) : 0;
-      return `<div class="payment-breakdown-row"><div><strong>${escapeHtml(label)}</strong><span>${percent}%</span></div><em>${formatYen(amount)}</em><div class="payment-breakdown-bar"><span style="width:${Math.min(100, percent)}%"></span></div></div>`;
+      return `<button type="button" class="payment-breakdown-row" data-breakdown-kind="${escapeHtml(key)}" data-breakdown-label="${escapeHtml(label)}" aria-label="${escapeHtml(`${kindLabel}「${label}」の支出一覧を表示`)}"><span class="payment-breakdown-label"><strong>${escapeHtml(label)}</strong><span>${percent}%</span></span><em>${formatYen(amount)}</em><span class="payment-breakdown-bar"><span style="width:${Math.min(100, percent)}%"></span></span></button>`;
     }).join('');
+    if (key === 'storeName') {
+      // すべてのお店の明細へアクセスできるよう、件数制限時は「すべて表示」ボタンを置く
+      if (entries.length > rows.length) html += `<button type="button" class="ghost small breakdown-show-all" data-breakdown-show-all="true">すべてのお店を表示（残り${entries.length - rows.length}件）</button>`;
+      else if (paymentsStoreShowAll && entries.length > 8) html += `<button type="button" class="ghost small breakdown-show-all" data-breakdown-show-all="false">上位8件の表示に戻す</button>`;
+    }
+    target.innerHTML = html;
   }
 
   function renderPaymentDayList(items) {
@@ -1511,17 +2002,19 @@
     els.budgetRemainTotal.textContent = formatYen(stats.remainTotal);
     els.budgetOverCount.textContent = `${stats.overCount}件`;
     els.budgetCardList.innerHTML = stats.items.length ? stats.items.map(renderBudgetCard).join('') : '<div class="card"><p class="hint">予算項目がありません。設定から追加してください。</p></div>';
+    if (els.unassignedExpensesButton) els.unassignedExpensesButton.textContent = `予算に含まれていない支出を見る（${getUnassignedExpenses(month).length}件）`;
   }
 
   function getBudgetStats(month) {
     const activeBudgets = state.budgets.filter((budget) => budget.enabled !== false);
-    const monthItems = filterByMonth(state.expenses, month).filter((item) => item.budgetId);
+    const monthItems = filterByMonth(state.expenses, month);
     const items = activeBudgets.map((budget) => {
-      const used = sum(monthItems.filter((item) => item.budgetId === budget.id || item.budgetName === budget.name).map((item) => item.amount));
+      const matched = monthItems.filter((item) => matchesBudget(item, budget));
+      const used = sum(matched.map((item) => item.amount));
       const limit = Math.max(0, Number(budget.monthlyLimit || 0));
       const remaining = limit - used;
       const rate = limit > 0 ? used / limit * 100 : used > 0 ? 100 : 0;
-      return { budget, used, limit, remaining, rate, status: budgetStatus(rate, limit, used) };
+      return { budget, used, limit, remaining, rate, count: matched.length, status: budgetStatus(rate, limit, used) };
     });
     return {
       items,
@@ -1543,74 +2036,450 @@
   function renderBudgetCard(item) {
     const percent = item.limit > 0 ? Math.min(120, Math.round(item.rate)) : item.used > 0 ? 100 : 0;
     const remainLabel = item.remaining >= 0 ? `残り ${formatYen(item.remaining)}` : `超過 ${formatYen(Math.abs(item.remaining))}`;
-    return `<article class="budget-card ${escapeHtml(item.status.key)}">
+    return `<article class="budget-card is-clickable ${escapeHtml(item.status.key)}" data-budget-open="${escapeHtml(item.budget.id)}" tabindex="0" role="button" aria-label="${escapeHtml(`予算「${item.budget.name}」の支出一覧を表示`)}">
       <div class="budget-card-top"><div><strong>${escapeHtml(item.budget.name)}</strong><span>${escapeHtml(item.status.label)}</span></div><em>${Math.round(item.rate)}%</em></div>
       <div class="budget-amounts"><div><span>月予算</span><strong>${formatYen(item.limit)}</strong></div><div><span>使用済み</span><strong>${formatYen(item.used)}</strong></div><div><span>${item.remaining >= 0 ? '残り' : '超過'}</span><strong class="${item.remaining < 0 ? 'negative' : 'positive'}">${formatYen(Math.abs(item.remaining))}</strong></div></div>
       <div class="progress budget-progress"><span style="width:${Math.min(100, percent)}%"></span></div>
-      <p class="hint">${escapeHtml(remainLabel)}</p>
+      <p class="hint">${escapeHtml(remainLabel)} ／ ${item.count || 0}件（タップで支出一覧）</p>
     </article>`;
   }
 
   function renderAchievements() {
-    const facts = buildAchievementFacts(els.achievementMonthInput.value || monthKey(new Date())); const newlyUnlocked = [];
-    achievementDefinitions.forEach((def) => { const current = Number(def.current(facts) || 0); const already = state.achievementsSeen.some((item) => item.id === def.id); if (!already && current >= def.target) { state.achievementsSeen.push({ id: def.id, achievedAt: nowIso() }); newlyUnlocked.push(def.title); } });
-    if (newlyUnlocked.length) saveState();
-    const unlockedIds = new Set(state.achievementsSeen.map((item) => item.id)); const unlockedCount = achievementDefinitions.filter((def) => unlockedIds.has(def.id)).length;
-    els.achievementUnlockedCount.textContent = `${unlockedCount}/${achievementDefinitions.length}`; els.achievementRecordDays.textContent = `${facts.recordDays}日`; els.achievementStreak.textContent = `${facts.bestStreak}日`; els.achievementRank.textContent = rankForUnlocked(unlockedCount);
-    const items = achievementDefinitions.map((def) => { const current = Math.min(Number(def.current(facts) || 0), def.target); const unlocked = unlockedIds.has(def.id) || current >= def.target; return { def, current, unlocked }; });
-    els.nextAchievementList.innerHTML = items.filter((item) => !item.unlocked).sort((a, b) => (b.current / b.def.target) - (a.current / a.def.target)).slice(0, 5).map(renderAchievementItem).join('') || '<p class="hint">すべて解除済みです。すごい。</p>';
-    els.achievementList.innerHTML = items.map(renderAchievementItem).join('');
+    const facts = buildAchievementFacts(els.achievementMonthInput.value || monthKey(new Date()));
+    const newlyUnlocked = [];
+    achievementDefinitions.forEach((def) => {
+      const current = Number(def.current(facts) || 0);
+      const already = state.achievementsSeen.some((item) => item.id === def.id);
+      if (!already && current >= def.target) { state.achievementsSeen.push({ id: def.id, achievedAt: nowIso() }); newlyUnlocked.push(def.title); }
+    });
+    if (newlyUnlocked.length) {
+      saveState();
+      // CSV復元などで大量解除された場合は、実績ごとに通知せずまとめて1回だけ表示する
+      if (newlyUnlocked.length >= 4) showToast(`新しい実績を${newlyUnlocked.length}件解除しました！（${newlyUnlocked.slice(0, 3).join('・')} ほか）`);
+      else showToast(`実績解除：${newlyUnlocked.join('・')}`);
+    }
+    const unlockedIds = new Set(state.achievementsSeen.map((item) => item.id));
+    const unlockedCount = achievementDefinitions.filter((def) => unlockedIds.has(def.id)).length;
+    els.achievementUnlockedCount.textContent = `${unlockedCount}/${achievementDefinitions.length}`;
+    els.achievementRecordDays.textContent = `${facts.recordDays}日`;
+    els.achievementStreak.textContent = `${facts.bestStreak}日`;
+    els.achievementRank.textContent = rankForUnlocked(unlockedCount);
+    const items = achievementDefinitions.map((def) => {
+      const target = Math.max(1, Number(def.target) || 1);
+      const current = Math.min(Number(def.current(facts) || 0), target);
+      const unlocked = unlockedIds.has(def.id) || current >= target;
+      return { def, current, unlocked };
+    });
+    els.nextAchievementList.innerHTML = items.filter((item) => !item.unlocked).sort((a, b) => (b.current / Math.max(1, b.def.target)) - (a.current / Math.max(1, a.def.target))).slice(0, 5).map(renderAchievementItem).join('') || '<p class="hint">すべて解除済みです。すごい。</p>';
+    const categoryFilter = els.achievementCategoryFilter?.value || '';
+    const stateFilter = els.achievementStateFilter?.value || '';
+    const filtered = items
+      .filter((item) => !categoryFilter || (item.def.category || 'その他') === categoryFilter)
+      .filter((item) => !stateFilter || (stateFilter === 'unlocked' ? item.unlocked : !item.unlocked));
+    if (els.achievementFilterCount) els.achievementFilterCount.textContent = `${filtered.length}件 / 全${items.length}件`;
+    els.achievementList.innerHTML = filtered.length ? filtered.map(renderAchievementItem).join('') : '<p class="hint">この条件の実績はありません。</p>';
   }
 
-  function renderAchievementItem(item) { const ratio = Math.min(100, Math.round(item.current / item.def.target * 100)); return `<article class="achievement-item ${item.unlocked ? 'unlocked' : ''}"><div class="achievement-emoji">${item.unlocked ? '✅' : item.def.emoji}</div><div><div class="achievement-title">${escapeHtml(item.def.title)}</div><div class="meta">${escapeHtml(item.def.description)}</div><div class="achievement-progress">${item.current}/${item.def.target}</div><div class="progress"><span style="width:${ratio}%"></span></div></div></article>`; }
+  function renderAchievementItem(item) { const ratio = Math.min(100, Math.round(item.current / Math.max(1, item.def.target) * 100)); return `<article class="achievement-item ${item.unlocked ? 'unlocked' : ''}"><div class="achievement-emoji">${item.unlocked ? '✅' : item.def.emoji}</div><div><div class="achievement-title">${escapeHtml(item.def.title)}</div><div class="meta">${escapeHtml(item.def.description)}</div><div class="achievement-progress">${item.current}/${item.def.target}</div><div class="progress"><span style="width:${ratio}%"></span></div></div></article>`; }
 
   function buildAchievementFacts(month) {
-    const monthItems = filterByMonth(state.expenses, month); const totalEntries = state.expenses.length; const dates = unique(state.expenses.map((item) => item.date)).sort();
-    const budgetStats = getBudgetStats(month);
-    const splitGroups = unique(state.expenses.filter((item) => item.receiptGroupId).map((item) => item.receiptGroupId));
-    const trialSplitGroups = unique(state.expenses.filter((item) => item.receiptGroupId && (item.storeName || '').includes('トライアル')).map((item) => item.receiptGroupId));
-    const matchedSplitGroups = splitGroups.filter((groupId) => {
-      const group = state.expenses.filter((item) => item.receiptGroupId === groupId);
-      const total = Number(group[0]?.receiptTotal || 0);
-      return total > 0 && total === sum(group.map((item) => item.amount));
+    // v2.6.0：300件の実績が共通利用する集計値を、支出1回の走査でまとめて計算する。
+    // 実績ごとに state.expenses.filter() を繰り返さないこと。
+    const monthItems = [];
+    const dateSet = new Set();
+    const monthSet = new Set();
+    const yearSet = new Set();
+    const categorySet = new Set();
+    const storeSet = new Set();
+    const sourceTypeSet = new Set();
+    const perDayCount = new Map();
+    const perStoreCount = new Map();
+    const splitGroups = new Map();
+    let memoEntries = 0; let newLifeEntries = 0; let allowanceEntries = 0; let budgetAssignedEntries = 0;
+    let cashEntries = 0; let cardEntries = 0; let emoneyEntries = 0; let debitEntries = 0;
+    let lifetimeAmount = 0; let maxExpenseAmount = 0; let smallEntries = 0;
+    let whiskyEntries = 0; let gameEntries = 0; let subsEntries = 0; let eatOutEntries = 0; let travelEntries = 0;
+    let medicalEntries = 0; let carEntries = 0; let catEntries = 0;
+    let amazonEntries = 0; let konbiniEntries = 0; let trialEntries = 0; let rakutenEntries = 0;
+    let julyEntries = 0; let whiskySplitEntries = 0; let splitEntries = 0;
+    let csvEntries = 0; let paypayTransactionsEntries = 0; let paypayCardEntries = 0; let rakutenCardEntries = 0; let ucsCardEntries = 0; let kabuCardEntries = 0;
+
+    state.expenses.forEach((item) => {
+      const amount = Number(item.amount) || 0;
+      const categoryName = String(item.categoryName || '');
+      const storeName = String(item.storeName || '');
+      const storeText = `${storeName} ${item.rawStore || ''}`.toLowerCase();
+      const itemMonth = monthKey(item.date);
+      dateSet.add(item.date);
+      monthSet.add(itemMonth);
+      yearSet.add(String(item.date).slice(0, 4));
+      categorySet.add(categoryName);
+      storeSet.add(storeName);
+      perDayCount.set(item.date, (perDayCount.get(item.date) || 0) + 1);
+      perStoreCount.set(storeName, (perStoreCount.get(storeName) || 0) + 1);
+      lifetimeAmount += amount;
+      if (amount > maxExpenseAmount) maxExpenseAmount = amount;
+      if (amount > 0 && amount <= 500) smallEntries += 1;
+      if (item.memo) memoEntries += 1;
+      if (normalizePhase(item.phase) === '新生活') newLifeEntries += 1;
+      if (item.isAllowanceExpense) allowanceEntries += 1;
+      if (item.budgetId) budgetAssignedEntries += 1;
+      if (item.paymentMethod === '現金') cashEntries += 1;
+      else if (item.paymentMethod === 'カード') cardEntries += 1;
+      else if (item.paymentMethod === '電子マネー') emoneyEntries += 1;
+      else if (item.paymentMethod === '口座引き落とし') debitEntries += 1;
+      if (categoryName.includes('ウイスキー') || categoryName.includes('酒')) whiskyEntries += 1;
+      if (categoryName.includes('ゲーム')) gameEntries += 1;
+      if (categoryName.includes('映画') || categoryName.includes('サブスク')) subsEntries += 1;
+      if (categoryName.includes('外食')) eatOutEntries += 1;
+      if (categoryName.includes('旅行')) travelEntries += 1;
+      if (categoryName.includes('医療')) medicalEntries += 1;
+      if (categoryName.includes('車') || categoryName.includes('ガソリン')) carEntries += 1;
+      if (categoryName.includes('猫') || storeName.includes('猫') || String(item.memo || '').includes('猫')) catEntries += 1;
+      if (storeText.includes('amazon') || storeText.includes('アマゾン')) amazonEntries += 1;
+      if (/セブン|ローソン|セイコーマート|ファミリーマート|ファミマ|ミニストップ|デイリーヤマザキ|コンビニ/.test(storeName)) konbiniEntries += 1;
+      if (storeName.includes('トライアル')) trialEntries += 1;
+      if (storeText.includes('楽天')) rakutenEntries += 1;
+      if (itemMonth === '2026-07') julyEntries += 1;
+      if (itemMonth === month) monthItems.push(item);
+      if (item.receiptGroupId) {
+        splitEntries += 1;
+        let group = splitGroups.get(item.receiptGroupId);
+        if (!group) { group = { count: 0, amountTotal: 0, receiptTotal: Number(item.receiptTotal || 0), categories: new Set(), isTrial: false }; splitGroups.set(item.receiptGroupId, group); }
+        group.count += 1;
+        group.amountTotal += amount;
+        if (!group.receiptTotal && Number(item.receiptTotal || 0) > 0) group.receiptTotal = Number(item.receiptTotal);
+        group.categories.add(categoryName);
+        if (storeName.includes('トライアル')) group.isTrial = true;
+        if (categoryName.includes('ウイスキー') || categoryName.includes('酒')) whiskySplitEntries += 1;
+      }
+      const sourceType = String(item.sourceType || '').trim();
+      if (sourceType) {
+        csvEntries += 1;
+        sourceTypeSet.add(sourceType);
+        if (sourceType === 'paypay_transactions') paypayTransactionsEntries += 1;
+        else if (sourceType === 'paypay_card') paypayCardEntries += 1;
+        else if (sourceType === 'rakuten_card') rakutenCardEntries += 1;
+        else if (sourceType === 'ucs_card') ucsCardEntries += 1;
+        else if (sourceType === 'kabu_card') kabuCardEntries += 1;
+      }
     });
+
+    let maxEntriesPerDay = 0;
+    perDayCount.forEach((count) => { if (count > maxEntriesPerDay) maxEntriesPerDay = count; });
+    let maxStoreVisits = 0;
+    perStoreCount.forEach((count) => { if (count > maxStoreVisits) maxStoreVisits = count; });
+
+    const splitGroupList = [...splitGroups.values()];
+    const matchedSplitGroups = splitGroupList.filter((group) => group.receiptTotal > 0 && group.receiptTotal === group.amountTotal).length;
+    const hasCategoryLike = (group, keyword) => [...group.categories].some((name) => name.includes(keyword));
+    const splitFoodSakeGroups = splitGroupList.filter((group) => hasCategoryLike(group, '食費') && (hasCategoryLike(group, '酒') || hasCategoryLike(group, 'ウイスキー'))).length;
+    const splitFoodDailyGroups = splitGroupList.filter((group) => hasCategoryLike(group, '食費') && hasCategoryLike(group, '日用品')).length;
+    let maxSplitLines = 0;
+    splitGroupList.forEach((group) => { if (group.count > maxSplitLines) maxSplitLines = group.count; });
+
+    const budgetStats = getBudgetStats(month);
+    const keptBudget = (item) => item.limit > 0 && item.used > 0 && item.rate < 100;
+    const keptBudgetCount = budgetStats.items.filter(keptBudget).length;
+    const keptWith = (keyword) => budgetStats.items.some((item) => keptBudget(item) && item.budget.name.includes(keyword)) ? 1 : 0;
+    const unassignedCount = getUnassignedExpenses(month).length;
+
+    const monthDateSet = new Set(); const monthCategorySet = new Set(); const monthStoreSet = new Set(); const monthMethodSet = new Set();
+    monthItems.forEach((item) => { monthDateSet.add(item.date); monthCategorySet.add(item.categoryName); monthStoreSet.add(item.storeName); monthMethodSet.add(item.paymentMethod); });
+
+    const goalProgressList = state.goals.map((goal) => ({ goal, progress: getGoalProgress(goal.id) }));
+    let maxGoalProgress = 0;
+    goalProgressList.forEach(({ goal, progress }) => {
+      const percent = goal.targetAmount > 0 ? Math.min(100, Math.floor(progress.currentAmount / goal.targetAmount * 100)) : 0;
+      if (percent > maxGoalProgress) maxGoalProgress = percent;
+    });
+
+    const pretendText = (item) => `${item.category || ''} ${item.thing || ''}`;
+
     return {
-      totalEntries,
-      julyEntries: state.expenses.filter((item) => monthKey(item.date) === '2026-07').length,
-      recordDays: unique(monthItems.map((item) => item.date)).length,
-      bestStreak: calcBestStreak(dates),
-      categoryCount: unique(monthItems.map((item) => item.categoryName)).length,
-      storeCount: unique(monthItems.map((item) => item.storeName)).length,
-      totalStoreCount: unique(state.expenses.map((item) => item.storeName)).length,
-      methodCount: unique(monthItems.map((item) => item.paymentMethod)).length,
-      memoEntries: state.expenses.filter((item) => item.memo).length,
-      monthCount: unique(state.expenses.map((item) => monthKey(item.date))).length,
-      yearCount: unique(state.expenses.map((item) => item.date.slice(0, 4))).length,
-      newLifeEntries: state.expenses.filter((item) => normalizePhase(item.phase) === '新生活').length,
-      whiskyEntries: state.expenses.filter((item) => item.categoryName.includes('ウイスキー') || item.categoryName.includes('酒')).length,
-      gameEntries: state.expenses.filter((item) => item.categoryName.includes('ゲーム')).length,
+      totalEntries: state.expenses.length,
+      julyEntries,
+      recordDays: monthDateSet.size,
+      bestStreak: calcBestStreak([...dateSet].sort()),
+      categoryCount: monthCategorySet.size,
+      storeCount: monthStoreSet.size,
+      totalStoreCount: storeSet.size,
+      totalCategoryCount: categorySet.size,
+      methodCount: monthMethodSet.size,
+      memoEntries,
+      monthCount: monthSet.size,
+      yearCount: yearSet.size,
+      maxEntriesPerDay,
+      maxStoreVisits,
+      lifetimeAmount,
+      maxExpenseAmount,
+      smallEntries,
+      newLifeEntries,
+      whiskyEntries,
+      sakeEntries: whiskyEntries,
+      gameEntries,
+      subsEntries,
+      eatOutEntries,
+      travelEntries,
+      medicalEntries,
+      carEntries,
+      catEntries,
+      amazonEntries,
+      konbiniEntries,
+      trialEntries,
+      rakutenEntries,
+      cashEntries,
+      cardEntries,
+      emoneyEntries,
+      debitEntries,
       budgetCount: state.budgets.length,
-      allowanceEntries: state.expenses.filter((item) => item.isAllowanceExpense).length,
+      allowanceEntries,
+      budgetAssignedEntries,
       foodBudgetSet: state.budgets.some((item) => item.name.includes('食費') && Number(item.monthlyLimit) > 0) ? 1 : 0,
       funBudgetSet: state.budgets.some((item) => item.name.includes('娯楽') && Number(item.monthlyLimit) > 0) ? 1 : 0,
       safeBudgetCount: budgetStats.items.filter((item) => item.limit > 0 && item.used > 0 && item.rate < 70).length,
       nearBudgetCount: budgetStats.items.filter((item) => item.limit > 0 && item.rate >= 90 && item.rate < 100).length,
       overBudgetCount: budgetStats.items.filter((item) => item.status.key === 'over').length,
-      splitReceiptGroups: splitGroups.length,
-      trialSplitGroups: trialSplitGroups.length,
-      whiskySplitEntries: state.expenses.filter((item) => item.receiptGroupId && (item.categoryName.includes('ウイスキー') || item.categoryName.includes('酒'))).length,
-      matchedSplitGroups: matchedSplitGroups.length,
+      keptBudgetCount,
+      exactBudgetCount: budgetStats.items.filter((item) => item.limit > 0 && item.used === item.limit).length,
+      unassignedZeroMonth: monthItems.length > 0 && unassignedCount === 0 ? 1 : 0,
+      allowanceKeptMonth: keptWith('お小遣い'),
+      foodKeptMonth: keptWith('食費'),
+      sakeKeptMonth: keptWith('酒'),
+      gameKeptMonth: keptWith('ゲーム'),
+      funKeptMonth: keptWith('娯楽'),
+      splitReceiptGroups: splitGroupList.length,
+      trialSplitGroups: splitGroupList.filter((group) => group.isTrial).length,
+      whiskySplitEntries,
+      matchedSplitGroups,
+      splitFoodSakeGroups,
+      splitFoodDailyGroups,
+      splitEntries,
+      maxSplitLines,
+      csvEntries,
+      paypayTransactionsEntries,
+      paypayCardEntries,
+      rakutenCardEntries,
+      ucsCardEntries,
+      kabuCardEntries,
+      importRuleCount: state.importRules.length,
+      csvSourceTypeCount: sourceTypeSet.size,
       pretendCount: state.pretendSavings.length,
       pretendUseCount: state.pretendUses.length,
       pretendMonthTotal: sum(filterByMonth(state.pretendSavings, month).map((item) => item.amount)),
       pretendLifetimeTotal: sum(state.pretendSavings.map((item) => item.amount)),
-      pretendWhiskyCount: state.pretendSavings.filter((item) => `${item.category} ${item.thing}`.includes('ウイスキー') || `${item.category} ${item.thing}`.includes('酒')).length,
-      pretendGameCount: state.pretendSavings.filter((item) => `${item.category} ${item.thing}`.includes('ゲーム') || `${item.category} ${item.thing}`.includes('課金')).length,
+      pretendUsedTotal: sum(state.pretendUses.map((item) => item.amount)),
+      pretendWhiskyCount: state.pretendSavings.filter((item) => pretendText(item).includes('ウイスキー') || pretendText(item).includes('酒')).length,
+      pretendGameCount: state.pretendSavings.filter((item) => pretendText(item).includes('ゲーム') || pretendText(item).includes('課金')).length,
+      pretendEatOutCount: state.pretendSavings.filter((item) => pretendText(item).includes('外食')).length,
+      pretendAmazonCount: state.pretendSavings.filter((item) => pretendText(item).toLowerCase().includes('amazon') || pretendText(item).includes('アマゾン')).length,
       goalCount: state.goals.length,
       savingCount: state.savings.length,
       linkedSavingCount: state.savings.filter((item) => item.goalId || state.goals.some((goal) => Array.isArray(goal.savingIds) && goal.savingIds.includes(item.id))).length,
-      goalAchievedCount: state.goals.filter((goal) => getGoalProgress(goal.id).currentAmount >= goal.targetAmount).length
+      goalAchievedCount: goalProgressList.filter(({ goal, progress }) => progress.currentAmount >= goal.targetAmount).length,
+      maxGoalProgress,
+      savingsBalanceTotal: sum(state.savings.map((item) => item.balance))
     };
+  }
+
+  // ---------- v2.6.0 共通の支出一覧ダイアログ ----------
+  function isDialogOpen() { return Boolean(els.expenseListDialog?.hasAttribute('open')); }
+
+  function openExpenseListDialog({ title, subtitle = '', stats = [], note = '', expenses = [], showBudget = true }) {
+    const dialog = els.expenseListDialog;
+    if (!dialog) return;
+    els.expenseDialogTitle.textContent = title;
+    els.expenseDialogSubtitle.textContent = subtitle;
+    els.expenseDialogSubtitle.classList.toggle('is-hidden', !subtitle);
+    els.expenseDialogStats.innerHTML = stats.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+    els.expenseDialogNote.textContent = note;
+    els.expenseDialogNote.classList.toggle('is-hidden', !note);
+    const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    els.expenseDialogList.innerHTML = sorted.length
+      ? sorted.map((item) => renderDialogExpenseRow(item, showBudget)).join('')
+      : '<p class="hint expense-dialog-empty">この条件の支出はありません。</p>';
+    if (typeof dialog.showModal === 'function' && !dialog.hasAttribute('open')) {
+      try { dialog.showModal(); } catch { dialog.setAttribute('open', ''); }
+    } else if (!dialog.hasAttribute('open')) {
+      dialog.setAttribute('open', '');
+    }
+    els.expenseDialogList.scrollTop = 0;
+  }
+
+  function closeExpenseListDialog() {
+    const dialog = els.expenseListDialog;
+    if (!dialog || !dialog.hasAttribute('open')) return;
+    if (typeof dialog.close === 'function') { try { dialog.close(); } catch { dialog.removeAttribute('open'); } }
+    else dialog.removeAttribute('open');
+  }
+
+  function budgetTagFor(item) {
+    // v2.6.1：削除済み・無効な予算IDを持つ支出を一覧上で区別して表示する
+    if (!item.budgetId && !item.budgetName) return '予算枠なし';
+    const label = item.budgetName || '名称不明';
+    if (item.budgetId) {
+      const byId = state.budgets.find((entry) => entry.id === item.budgetId);
+      if (!byId) return `削除済み予算：${label}`;
+      if (byId.enabled === false) return `無効な予算：${byId.name}`;
+      return `予算:${byId.name}`;
+    }
+    const byName = state.budgets.find((entry) => entry.name === item.budgetName);
+    if (!byName) return `削除済み予算：${label}`;
+    if (byName.enabled === false) return `無効な予算：${byName.name}`;
+    return `予算:${byName.name}`;
+  }
+
+  function renderDialogExpenseRow(item, showBudget) {
+    const source = item.sourceLabel || (item.sourceType ? 'CSV取込' : '手入力');
+    const tags = [
+      item.categoryName || '未分類',
+      item.storeName || 'その他',
+      item.paymentMethod || 'その他',
+      showBudget ? budgetTagFor(item) : '',
+      normalizePhase(item.phase),
+      source,
+      item.receiptGroupId ? `分割レシート${item.receiptTotal ? `（合計${formatYen(item.receiptTotal)}）` : ''}` : '',
+      item.memo || ''
+    ].filter(Boolean);
+    return `<article class="expense-dialog-row" data-dialog-expense="${escapeHtml(item.id)}" tabindex="0" role="button" aria-label="${escapeHtml(`${item.date} ${item.storeName || ''} ${formatYen(item.amount)} を編集`)}">
+      <div class="expense-dialog-row-main">
+        <div class="expense-dialog-row-head"><strong>${escapeHtml(formatJapaneseDate(item.date))}</strong><em>${formatYen(item.amount)}</em></div>
+        <div class="meta">${tags.map(escapeHtml).join(' / ')}</div>
+      </div>
+      <button type="button" class="icon-button small" data-dialog-edit="${escapeHtml(item.id)}">編集</button>
+    </article>`;
+  }
+
+  function handleDialogListInteraction(event) {
+    const editButton = event.target.closest('[data-dialog-edit]');
+    const row = event.target.closest('[data-dialog-expense]');
+    const id = editButton?.dataset.dialogEdit || row?.dataset.dialogExpense;
+    if (!id) return;
+    closeExpenseListDialog();
+    editExpense(id);
+  }
+
+  function handleDialogListKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target.closest('[data-dialog-expense]');
+    if (!row) return;
+    event.preventDefault();
+    closeExpenseListDialog();
+    editExpense(row.dataset.dialogExpense);
+  }
+
+  // ---------- v2.6.0 予算タブ：予算別・未割当の支出一覧 ----------
+  function matchesBudget(item, budget) {
+    // v2.6.1：予算IDがある支出はIDだけで判定（削除済みIDが同名の現役予算へ誤加算されるのを防止）
+    if (item.budgetId) return item.budgetId === budget.id;
+    // 旧データ互換：IDが空のときのみ予算名で判定
+    return Boolean(item.budgetName) && item.budgetName === budget.name;
+  }
+
+  function getBudgetExpenses(month, budget) {
+    return filterByMonth(state.expenses, month).filter((item) => matchesBudget(item, budget));
+  }
+
+  function getUnassignedExpenses(month) {
+    const activeBudgets = state.budgets.filter((budget) => budget.enabled !== false);
+    return filterByMonth(state.expenses, month).filter((item) => !activeBudgets.some((budget) => matchesBudget(item, budget)));
+  }
+
+  function openBudgetExpenseList(budgetId) {
+    const budget = getBudget(budgetId);
+    if (!budget) return;
+    const month = els.budgetMonthInput.value || monthKey(new Date());
+    const expenses = getBudgetExpenses(month, budget);
+    const used = sum(expenses.map((item) => item.amount));
+    const limit = Math.max(0, Number(budget.monthlyLimit || 0));
+    const remaining = limit - used;
+    openExpenseListDialog({
+      title: `予算「${budget.name}」の支出一覧`,
+      subtitle: '支出をタップまたは「編集」で、入力タブの編集フォームへ移動します。',
+      stats: [
+        ['対象月', formatMonthLabel(month)],
+        ['予算名', budget.name],
+        ['支出合計', formatYen(used)],
+        ['支出件数', `${expenses.length}件`],
+        ['月予算額', formatYen(limit)],
+        [remaining >= 0 ? '残額' : '超過額', formatYen(Math.abs(remaining))]
+      ],
+      expenses,
+      showBudget: false
+    });
+  }
+
+  function openUnassignedExpenseList() {
+    const month = els.budgetMonthInput.value || monthKey(new Date());
+    const expenses = getUnassignedExpenses(month);
+    openExpenseListDialog({
+      title: '予算に含まれていない支出',
+      subtitle: '予算枠が未設定・削除済み・無効（OFF）の支出をまとめて表示しています。',
+      stats: [
+        ['対象月', formatMonthLabel(month)],
+        ['合計金額', formatYen(sum(expenses.map((item) => item.amount)))],
+        ['件数', `${expenses.length}件`]
+      ],
+      note: '各支出を編集して予算枠を設定すると、予算管理へ反映されます。',
+      expenses,
+      showBudget: true
+    });
+  }
+
+  function handleBudgetCardListClick(event) {
+    const card = event.target.closest('[data-budget-open]');
+    if (!card) return;
+    openBudgetExpenseList(card.dataset.budgetOpen);
+  }
+
+  function handleBudgetCardListKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const card = event.target.closest('[data-budget-open]');
+    if (!card) return;
+    event.preventDefault();
+    openBudgetExpenseList(card.dataset.budgetOpen);
+  }
+
+  // ---------- v2.6.0 月の支払いタブ：集計項目からの明細一覧 ----------
+  function getPaymentsMonthItems() {
+    const month = els.paymentsMonthInput.value || monthKey(new Date());
+    const phase = els.paymentsPhaseInput.value;
+    const items = state.expenses
+      .filter((item) => monthKey(item.date) === month)
+      .filter((item) => !phase || normalizePhase(item.phase) === phase);
+    return { month, phase, items };
+  }
+
+  function openPaymentDetailList(kind, label) {
+    if (!paymentBreakdownKinds[kind]) return;
+    const { month, phase, items } = getPaymentsMonthItems();
+    const expenses = items.filter((item) => (item[kind] || '未分類') === label);
+    openExpenseListDialog({
+      title: `${label} の支出一覧`,
+      subtitle: '支出をタップまたは「編集」で、入力タブの編集フォームへ移動します。',
+      stats: [
+        ['対象月', formatMonthLabel(month)],
+        ['生活フェーズ', phase || 'すべて'],
+        ['集計種類', paymentBreakdownKinds[kind]],
+        ['選択した項目', label],
+        ['合計金額', formatYen(sum(expenses.map((item) => item.amount)))],
+        ['件数', `${expenses.length}件`]
+      ],
+      expenses,
+      showBudget: true
+    });
+  }
+
+  function handlePaymentBreakdownClick(event) {
+    const showAllButton = event.target.closest('[data-breakdown-show-all]');
+    if (showAllButton) {
+      paymentsStoreShowAll = showAllButton.dataset.breakdownShowAll === 'true';
+      renderMonthlyPayments();
+      return;
+    }
+    const row = event.target.closest('[data-breakdown-kind]');
+    if (!row) return;
+    openPaymentDetailList(row.dataset.breakdownKind, row.dataset.breakdownLabel);
   }
 
   function handleCategorySubmit(event) {
@@ -1764,14 +2633,18 @@
     if (guessedMethod === 'カード' || guessedMethod === '口座引き落とし') method = guessedMethod; if (!method) method = guessedMethod;
     const budgetNameRaw = canonicalizeBudgetName(String(item.budgetName || item.budget_name || item.budget || item['予算枠'] || '').trim());
     const budgetIdRaw = String(item.budgetId || item.budget_id || '').trim();
-    const budget = (budgets || []).find((entry) => entry.id === budgetIdRaw || entry.name === budgetNameRaw);
+    // v2.6.1：予算IDを最優先。IDがある支出は名前で別予算へ付け替えない。
+    // 予算IDが空で予算名だけ残っている旧データのみ、名前からの補完を許可する。
+    let budget = null;
+    if (budgetIdRaw) budget = (budgets || []).find((entry) => entry.id === budgetIdRaw);
+    else if (budgetNameRaw) budget = (budgets || []).find((entry) => entry.name === budgetNameRaw);
     const allowanceRaw = item.isAllowanceExpense ?? item.is_allowance_expense ?? item['お小遣いから支出'] ?? false;
     const isAllowanceExpense = allowanceRaw === true || String(allowanceRaw).toLowerCase() === 'true' || String(allowanceRaw) === '1' || String(allowanceRaw).includes('はい');
     const receiptGroupId = String(item.receiptGroupId || item.receipt_group_id || '').trim();
     const receiptTotal = parseAmount(item.receiptTotal ?? item.receipt_total ?? 0);
     const componentRaw = item.componentAmounts ?? item.component_amounts ?? '';
     const componentAmounts = Array.isArray(componentRaw) ? componentRaw.map(Number).filter(Number.isFinite) : parseIdList(componentRaw).map(Number).filter(Number.isFinite);
-    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), isAllowanceExpense, budgetId: budget?.id || '', budgetName: budget?.name || budgetNameRaw || '', receiptGroupId, receiptTotal: Number.isFinite(receiptTotal) && receiptTotal > 0 ? Math.round(receiptTotal) : '', memo: String(item.memo || item['メモ'] || '').trim(), sourceType: String(item.sourceType || item.source_type || '').trim(), sourceLabel: String(item.sourceLabel || item.source_label || '').trim(), sourceFile: String(item.sourceFile || item.source_file || '').trim(), externalId: String(item.externalId || item.external_id || '').trim(), rawStore: String(item.rawStore || item.raw_store || '').trim(), merchantKey: String(item.merchantKey || item.merchant_key || '').trim(), componentAmounts, createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
+    return { id: item.id || createId('exp'), date, amount: Math.round(amount), categoryId: category.id, categoryName: category.name, storeId: store.id, storeName: store.name, paymentMethod: normalizePaymentMethod(method), phase: normalizePhase(item.phase || item['生活フェーズ']), isAllowanceExpense, budgetId: budget?.id || budgetIdRaw || '', budgetName: budget?.name || budgetNameRaw || '', receiptGroupId, receiptTotal: Number.isFinite(receiptTotal) && receiptTotal > 0 ? Math.round(receiptTotal) : '', memo: String(item.memo || item['メモ'] || '').trim(), sourceType: String(item.sourceType || item.source_type || '').trim(), sourceLabel: String(item.sourceLabel || item.source_label || '').trim(), sourceFile: String(item.sourceFile || item.source_file || '').trim(), externalId: String(item.externalId || item.external_id || '').trim(), rawStore: String(item.rawStore || item.raw_store || '').trim(), merchantKey: String(item.merchantKey || item.merchant_key || '').trim(), componentAmounts, createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() };
   }
 
   function normalizeGoal(item) { const title = String(item?.title || item?.name || item?.['タイトル'] || '').trim(); const targetAmount = parseAmount(item?.targetAmount ?? item?.target_amount ?? item?.target ?? item?.['目標金額']); if (!title || !Number.isFinite(targetAmount) || targetAmount <= 0) return null; const manualAmount = parseAmount(item?.manualAmount ?? item?.manual_amount ?? item?.currentAmount ?? item?.current_amount ?? item?.savedAmount ?? item?.['手入力済み額'] ?? 0); const type = ['experience', 'wish', 'reserve'].includes(item?.type) ? item.type : normalizeGoalType(item?.type || item?.['種類']); const savingIds = parseIdList(item?.savingIds ?? item?.saving_ids ?? item?.linked_saving_ids ?? item?.['貯金先ID'] ?? ''); return { id: item.id || createId('goal'), title, targetAmount: Math.round(targetAmount), manualAmount: Number.isFinite(manualAmount) && manualAmount > 0 ? Math.round(manualAmount) : 0, dueDate: String(item.dueDate || item.due_date || item['目標時期'] || '').slice(0, 10), type, savingIds, memo: String(item.memo || item['メモ'] || '').trim(), createdAt: item.createdAt || item.created_at || nowIso(), updatedAt: item.updatedAt || item.updated_at || nowIso() }; }
@@ -1888,7 +2761,20 @@
   function pretendUseSignature(item) { return `${item.date}|${item.amount}|${item.purpose}|${item.memo}`; }
 
   function calcBestStreak(dates) { if (!dates.length) return 0; let best = 1; let current = 1; for (let i = 1; i < dates.length; i += 1) { const prev = new Date(dates[i - 1]); const currentDate = new Date(dates[i]); const diffDays = Math.round((currentDate - prev) / 86400000); if (diffDays === 1) current += 1; else if (diffDays > 1) current = 1; best = Math.max(best, current); } return best; }
-  function rankForUnlocked(count) { if (count >= 20) return '家計簿の守護者'; if (count >= 15) return '生活ログ司令官'; if (count >= 10) return 'レシートハンター'; if (count >= 5) return '記録係主任'; if (count >= 1) return '見習い記録係'; return '未開始'; }
+  function rankForUnlocked(count) {
+    // v2.6.0：実績300件に合わせた称号の段階
+    if (count >= 300) return '家計簿完全制覇';
+    if (count >= 250) return '家計簿の守護神';
+    if (count >= 200) return 'レシート考古学者';
+    if (count >= 150) return '家計管理司令官';
+    if (count >= 100) return '財布の監査官';
+    if (count >= 75) return '生活ログ主任';
+    if (count >= 50) return '予算防衛軍';
+    if (count >= 25) return '家計簿調査員';
+    if (count >= 10) return 'レシート拾い';
+    if (count >= 1) return '見習い記録係';
+    return '未開始';
+  }
   function mergeByIdOrSignature(target, imported, signatureFn) { imported.forEach((item) => { const indexById = target.findIndex((existing) => existing.id && item.id && existing.id === item.id); const indexBySig = target.findIndex((existing) => signatureFn(existing) === signatureFn(item)); const index = indexById >= 0 ? indexById : indexBySig; if (index >= 0) target[index] = { ...target[index], ...item, updatedAt: nowIso() }; else target.push(item); }); }
   function rowsToObjects(rows) { if (!rows.length) return []; const header = rows[0].map((cell) => String(cell || '').trim()); return rows.slice(1).filter((row) => row.some((cell) => String(cell || '').trim())).map((row) => Object.fromEntries(header.map((key, index) => [key, row[index] ?? '']))); }
   function parseCsv(text) { const rows = []; let row = []; let cell = ''; let inQuotes = false; const input = String(text || '').replace(/^\uFEFF/, ''); for (let i = 0; i < input.length; i += 1) { const char = input[i]; const next = input[i + 1]; if (char === '"') { if (inQuotes && next === '"') { cell += '"'; i += 1; } else inQuotes = !inQuotes; } else if (char === ',' && !inQuotes) { row.push(cell); cell = ''; } else if ((char === '\n' || char === '\r') && !inQuotes) { if (char === '\r' && next === '\n') i += 1; row.push(cell); rows.push(row); row = []; cell = ''; } else { cell += char; } } if (cell || row.length) { row.push(cell); rows.push(row); } return rows; }
@@ -1899,5 +2785,5 @@
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
   function showToast(message) { els.toast.textContent = message; els.toast.classList.add('is-visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => els.toast.classList.remove('is-visible'), 2400); }
 
-  window.__kakeiboDebug = { getState: () => state, getPendingImports: () => pendingImportRows, parseStatementCsv, renderAll, renderMonthlyPayments, importSelectedTransactions, setComparePreset, setPendingImports: (rows) => { pendingImportRows = rows; pendingImportRows.forEach((row, index) => { row.order = index; }); resolvePendingImportDuplicates(); return pendingImportRows; } };
+  window.__kakeiboDebug = { getState: () => state, getPendingImports: () => pendingImportRows, parseStatementCsv, renderAll, renderMonthlyPayments, importSelectedTransactions, setComparePreset, achievementDefinitions, buildAchievementFacts, rankForUnlocked, getBudgetStats, getBudgetExpenses, getUnassignedExpenses, matchesBudget, normalizeExpense, budgetTagFor, openBudgetExpenseList, openUnassignedExpenseList, openPaymentDetailList, closeExpenseListDialog, editExpense, renderAchievements, backupToRows, importBackup, setPendingImports: (rows) => { pendingImportRows = rows; pendingImportRows.forEach((row, index) => { row.order = index; }); resolvePendingImportDuplicates(); return pendingImportRows; } };
 })();
