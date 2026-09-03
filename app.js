@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.6.1';
+  const APP_VERSION = '2.6.2';
   // 保存データは後方互換で拡張しているためv240のキーを維持（既存データをそのまま引き継ぐ）
   const STORAGE_KEY = 'jun_kakeibo_expense_v240';
   const OLD_STORAGE_KEYS = [
@@ -2572,10 +2572,19 @@
     applyImportedOrder(state.stores, importedStores);
     state.stores = mergeByName(state.stores, importedStores);
     const importedBudgets = objects.filter((obj) => obj.section === 'budget').map(normalizeBudget).filter(Boolean);
+    // v2.6.2：インポート元（別デバイス／初期化後の端末）の予算IDと、この端末で実際に使われる予算IDの対応表。
+    // 名前一致で既存の予算に統合した場合、既存側のIDが優先されるため、支出側のbudget_idはそのままでは食い違う。
+    // このマップで支出側のbudget_idを付け替えてからnormalizeExpenseへ渡す。
+    const budgetIdMap = new Map();
     importedBudgets.forEach((imported) => {
       const existing = state.budgets.find((budget) => budget.id === imported.id || budget.name === imported.name);
-      if (existing) Object.assign(existing, { name: imported.name, monthlyLimit: imported.monthlyLimit, enabled: imported.enabled, updatedAt: nowIso() });
-      else state.budgets.push({ ...imported, sortOrder: Number.isFinite(Number(imported.sortOrder)) && Number(imported.sortOrder) !== 999 ? Number(imported.sortOrder) : state.budgets.length });
+      if (existing) {
+        budgetIdMap.set(imported.id, existing.id);
+        Object.assign(existing, { name: imported.name, monthlyLimit: imported.monthlyLimit, enabled: imported.enabled, updatedAt: nowIso() });
+      } else {
+        state.budgets.push({ ...imported, sortOrder: Number.isFinite(Number(imported.sortOrder)) && Number(imported.sortOrder) !== 999 ? Number(imported.sortOrder) : state.budgets.length });
+        budgetIdMap.set(imported.id, imported.id);
+      }
     });
     state.budgets = resequenceByOrder(state.budgets);
     const importedGoals = objects.filter((obj) => obj.section === 'goal').map(normalizeGoal).filter(Boolean);
@@ -2588,7 +2597,12 @@
     mergeByIdOrSignature(state.pretendUses, importedPretendUses, pretendUseSignature);
     const importedRules = objects.filter((obj) => obj.section === 'import_rule').map(normalizeImportRule).filter(Boolean);
     importedRules.forEach((rule) => { const existing = state.importRules.find((item) => item.sourceType === rule.sourceType && item.merchantKey === rule.merchantKey); if (existing) Object.assign(existing, rule); else state.importRules.push(rule); });
-    const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => normalizeExpense(obj, state.categories, state.stores, state.budgets)).filter(Boolean);
+    const importedExpenses = objects.filter((obj) => obj.section === 'expense').map((obj) => {
+      // v2.6.2：budgetIdMapで、この端末の実体予算IDに付け替えてから正規化する
+      const rawBudgetId = String(obj.budgetId || obj.budget_id || '').trim();
+      const mappedBudgetId = rawBudgetId && budgetIdMap.has(rawBudgetId) ? budgetIdMap.get(rawBudgetId) : rawBudgetId;
+      return normalizeExpense({ ...obj, budgetId: mappedBudgetId, budget_id: mappedBudgetId }, state.categories, state.stores, state.budgets);
+    }).filter(Boolean);
     mergeByIdOrSignature(state.expenses, importedExpenses, expenseSignature);
     renderAll(); showToast(`一括CSVを読み込みました。支出${importedExpenses.length}件・目標${importedGoals.length}件・貯金${importedSavings.length}件・つもり貯金${importedPretendSavings.length}件・使い道${importedPretendUses.length}件・予算${importedBudgets.length}件・店名ルール${importedRules.length}件`);
   }

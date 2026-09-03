@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4c85d">
-  <title>じぶん家計簿 v2.6.1</title>
+  <title>じぶん家計簿 v2.6.2</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" href="icon-192.png" type="image/png">
@@ -17,7 +17,7 @@
       <h1>じぶん家計簿</h1>
       <p class="subtitle">レシートと領収書を記録して、今月・去年・新生活後の支出を比べます。</p>
     </div>
-    <div class="version">v2.6.1</div>
+    <div class="version">v2.6.2</div>
   </header>
 
   <nav class="tabbar" aria-label="メインメニュー">
@@ -722,6 +722,7 @@
         <div class="card">
           <h3>更新履歴</h3>
           <div class="changelog-list">
+            <article><strong>v2.6.2</strong><p>別デバイスへCSV復元、またはデータ初期化後にCSV復元した際、予算タブの支出が0件になり「削除済み予算」扱いになる不具合を修正。予算（budget）は端末ごとに内部IDが異なるため、名前が一致する既存予算に統合された場合、そのCSVに含まれる支出のbudget_idを統合先の実際のIDへ付け替えてから取り込むように変更。すでに壊れた状態で取り込み済みのデータも、同じバックアップCSVをこのバージョンで読み込み直せば修復可能。</p></article>
             <article><strong>v2.6.1</strong><p>削除済みの予算IDを持つ支出が、同名の現役予算へ誤って再割当・集計される問題を修正。予算の紐付けはID完全一致を最優先とし、予算名での補完はIDが空の旧データのみに限定。存在しないIDはそのまま保持して「予算に含まれていない支出」として扱い、一覧上では「削除済み予算」「無効な予算」を区別して表示。1件の支出が複数予算へ二重集計されないことを回帰テストで確認。</p></article>
             <article><strong>v2.6.0</strong><p>予算カードのタップでその予算の支出一覧を表示。「予算に含まれていない支出」一覧を追加し、削除済み・無効な予算に紐づく支出も確認可能に。月の支払いの支払方法・カテゴリ・お店集計をタップ可能にして明細一覧を表示。各一覧から既存の編集フォームへ移動でき、更新後は全集計を即時再計算。実績を41件から300件へ拡張し、実績カテゴリ・解除状態の絞り込みと称号11段階を追加。大量解除時の通知をまとめ表示。既存データ・CSV・実績解除状況は完全互換。</p></article>
             <article><strong>v2.5.2</strong><p>保存済みの店名ルールを一覧表示し、取込元・元の店名・統一後の店名・カテゴリ・予算枠・支払方法・登録対象を個別に編集・削除できる管理画面を追加。検索絞り込みにも対応。</p></article>
