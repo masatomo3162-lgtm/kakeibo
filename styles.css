@@ -347,3 +347,9 @@ dialog.expense-dialog::backdrop { background: transparent; }
   .expense-dialog-row { grid-template-columns: 1fr; }
   .expense-dialog-row > .icon-button { justify-self: end; }
 }
+
+/* 入力タブ下部の入力忘れ防止メモ（表示専用・常時表示） */
+.reminder-memo { margin-top: 1rem; padding: .95rem 1.05rem; border: 2px solid #d9b45a; border-left-width: 6px; border-radius: 14px; background: #fff6dc; color: #4f3f22; overflow-wrap: anywhere; }
+.reminder-memo h3 { margin: 0 0 .6rem; font-size: 1.02rem; line-height: 1.5; color: #6b4a0b; }
+.reminder-memo ul { margin: 0; padding-left: 1.3rem; display: grid; gap: .35rem; font-size: 1rem; line-height: 1.55; }
+@media (max-width: 520px) { .reminder-memo { padding: .85rem .9rem; } .reminder-memo h3 { font-size: .98rem; } }
